@@ -9,11 +9,12 @@
 # A failed assertion here would invalidate the decision to fix delta and
 # exclude it from Sobol/GP analyses.
 #
-# Prerequisites: release binary (cargo build --release), processx, jsonlite
+# Prerequisites: release binary (cargo build --release), processx, jsonlite, cli
 # Run from project root: Rscript analysis/delta_monotone.R
 
 library(processx)
 library(jsonlite)
+library(cli)
 
 set.seed(42)
 
@@ -79,7 +80,7 @@ for (combo_name in names(combos)) {
       error_on_status = FALSE
     )
     if (res$status != 0) {
-      warning("Binary failed for combo=", combo_name, " delta=", delta_grid[k])
+      cli_alert_warning("Binary failed for combo={combo_name} delta={delta_grid[k]}")
       psi_series[k] <- NA
       next
     }
@@ -96,14 +97,15 @@ for (combo_name in names(combos)) {
     psi    = psi_series
   ))
 
-  cat(sprintf("%-12s  delta: %s\n", combo_name,
-              paste(sprintf("%.3f→Ψ=%.3f", delta_grid, psi_series), collapse = "  ")))
+  pairs_str <- paste(sprintf("%.3f→Ψ=%.3f", delta_grid, psi_series),
+                     collapse = "  ")
+  cli_alert_info("{combo_name}: {pairs_str}")
 }
 
 # ---------------------------------------------------------------------------
 # Monotonicity assertion: Psi must be non-increasing in delta for each combo
 # ---------------------------------------------------------------------------
-cat("\n--- Monotonicity check ---\n")
+cli_alert_info("--- Monotonicity check ---")
 all_pass <- TRUE
 
 for (combo_name in names(combos)) {
@@ -116,19 +118,19 @@ for (combo_name in names(combos)) {
   tol   <- max(tol, 0.01)   # floor tolerance at 0.01
 
   violations <- sum(diffs > tol, na.rm = TRUE)
-  status <- if (violations == 0) "PASS" else "FAIL"
-  if (violations > 0) all_pass <- FALSE
-
-  cat(sprintf("  %-12s  %s  (violations: %d / %d increments, tol=%.3f)\n",
-              combo_name, status, violations, length(diffs), tol))
+  if (violations == 0) {
+    cli_alert_info("{combo_name}: PASS")
+  } else {
+    cli_alert_warning("{combo_name}: FAIL ({violations}/{length(diffs)} violations, tol={round(tol, 3)})")
+    all_pass <- FALSE
+  }
 }
 
 write.csv(results, "delta_monotone_results.csv", row.names = FALSE)
-cat("\nWrote delta_monotone_results.csv\n")
+cli_alert_info("Wrote delta_monotone_results.csv")
 
 if (!all_pass) {
   stop("Monotonicity check FAILED — review delta_monotone_results.csv")
 } else {
-  cat("All monotonicity checks passed. delta fixed at", d$delta,
-      "is consistent with the suppression finding.\n")
+  cli_alert_info("All checks passed. delta fixed at {d$delta} is consistent with the suppression finding.")
 }

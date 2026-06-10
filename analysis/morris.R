@@ -3,7 +3,7 @@
 # Generates an OAT trajectory design, runs the Rust binary for each point (paired
 # mu0=0.4 vs mu0=0.6), and computes mu* and sigma per parameter.
 #
-# Prerequisites: install.packages(c("sensitivity", "processx", "dplyr"))
+# Prerequisites: install.packages(c("sensitivity", "processx", "dplyr", "cli"))
 # Run from project root: Rscript analysis/morris.R
 # Requires a release build: cargo build --release
 
@@ -11,11 +11,12 @@ library(sensitivity)
 library(processx)
 library(dplyr)
 library(jsonlite)
+library(cli)
 
 set.seed(42)
 
 # ---------------------------------------------------------------------------
-# Parameter space (12 free parameters after ratio reparametrisation)
+# Parameter space (11 free parameters after ratio reparametrisation)
 # ---------------------------------------------------------------------------
 param_names <- c(
   "gamma",    # network attachment exponent
@@ -59,7 +60,7 @@ fixed <- list(
 # ---------------------------------------------------------------------------
 # Generate Morris OAT design
 # ---------------------------------------------------------------------------
-cat("Generating Morris design (r=15 trajectories, p=", p, "parameters)...\n")
+cli_alert_info("Generating Morris design (r=15 trajectories, p={p} parameters)...")
 m <- morris(
   model  = NULL,
   factors = param_names,
@@ -68,7 +69,7 @@ m <- morris(
   binf   = binf[param_names],
   bsup   = bsup[param_names]
 )
-cat("Design has", nrow(m$X), "rows\n")
+cli_alert_info("Design has {nrow(m$X)} rows")
 
 # Expand to full Params CSV (all 29 fields required by the Rust binary)
 design_full <- as.data.frame(m$X)
@@ -79,7 +80,7 @@ design_full$n     <- as.integer(design_full$n)
 design_full$t_max <- as.integer(design_full$t_max)
 
 write.csv(design_full, "design_morris.csv", row.names = FALSE)
-cat("Wrote design_morris.csv (", nrow(design_full), "rows x", ncol(design_full), "cols)\n")
+cli_alert_info("Wrote design_morris.csv ({nrow(design_full)} rows x {ncol(design_full)} cols)")
 
 # ---------------------------------------------------------------------------
 # Run the Rust binary
@@ -89,7 +90,7 @@ if (!file.exists(binary)) {
   stop("Binary not found at ", binary, " — run 'cargo build --release' first")
 }
 
-cat("Running binary...\n")
+cli_alert_info("Running binary...")
 result <- processx::run(
   binary,
   c("morris", "--design", "design_morris.csv", "--output", "morris_raw.csv"),
@@ -106,11 +107,11 @@ if (result$status != 0) {
 # ---------------------------------------------------------------------------
 raw <- read.csv("morris_raw.csv")
 if (nrow(raw) != 2 * nrow(design_full)) {
-  warning("Expected ", 2 * nrow(design_full), " rows, got ", nrow(raw))
+  cli_alert_warning("Expected {2 * nrow(design_full)} rows, got {nrow(raw)}")
 }
 psi_vals <- raw$psi[seq(1, nrow(raw), by = 2)]
 if (any(is.na(psi_vals))) {
-  warning(sum(is.na(psi_vals)), " NA psi values replaced with 0")
+  cli_alert_warning("{sum(is.na(psi_vals))} NA psi values replaced with 0")
   psi_vals[is.na(psi_vals)] <- 0
 }
 
@@ -133,6 +134,6 @@ results <- data.frame(
 results <- results[order(-results$mu_star), ]
 write.csv(results, "morris_results.csv", row.names = FALSE)
 
-cat("\nMorris results (ranked by mu*):\n")
+cli_alert_info("Morris results (ranked by mu*):")
 print(results, digits = 3)
-cat("\nWrote morris_results.csv\n")
+cli_alert_info("Wrote morris_results.csv")

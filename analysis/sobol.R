@@ -4,18 +4,19 @@
 # Saltelli design, runs the Rust binary, and computes first-order (S_i) and
 # total-effect (S_Ti) indices.
 #
-# Prerequisites: install.packages(c("sensitivity", "processx", "dplyr"))
+# Prerequisites: install.packages(c("sensitivity", "processx", "dplyr", "cli"))
 # Run from project root: Rscript analysis/sobol.R
 
 library(sensitivity)
 library(processx)
 library(dplyr)
 library(jsonlite)
+library(cli)
 
 set.seed(42)
 
 # ---------------------------------------------------------------------------
-# Select parameters: top N by mu* from Morris (or all 12 if no prior results)
+# Select parameters: top N by mu* from Morris (or all 11 if no prior results)
 # ---------------------------------------------------------------------------
 TOP_N <- 6   # number of parameters to include in Sobol
 
@@ -37,12 +38,11 @@ if (file.exists("morris_results.csv")) {
   morris_df <- read.csv("morris_results.csv")
   morris_df <- morris_df[!(morris_df$param %in% FIXED_EXCLUDE), ]
   param_names <- as.character(morris_df$param[seq_len(min(TOP_N, nrow(morris_df)))])
-  cat("Using top", length(param_names), "parameters from Morris screening",
-      "(delta excluded):\n")
-  cat(" ", paste(param_names, collapse = ", "), "\n")
+  cli_alert_info("Using top {length(param_names)} parameters from Morris screening \\
+                  (delta excluded): {paste(param_names, collapse = ', ')}")
 } else {
   param_names <- all_param_names
-  cat("morris_results.csv not found; using all", length(param_names), "parameters\n")
+  cli_alert_warning("morris_results.csv not found; using all {length(param_names)} parameters")
 }
 p <- length(param_names)
 
@@ -72,8 +72,8 @@ fixed <- list(
 # Saltelli design: X1 and X2 sampled uniformly on actual parameter ranges
 # ---------------------------------------------------------------------------
 n_sobol <- 1000   # total evaluations = n * (2p + 2); increase for production
-cat("Generating Saltelli design (n=", n_sobol, ", p=", p, ")...\n")
-cat("Total binary calls:", n_sobol * (2 * p + 2), "\n")
+cli_alert_info("Generating Saltelli design (n={n_sobol}, p={p})...")
+cli_alert_info("Total binary calls: {n_sobol * (2 * p + 2)}")
 
 make_design <- function(n, pnames, lo, hi) {
   mat <- matrix(runif(n * length(pnames)), n, length(pnames))
@@ -87,7 +87,7 @@ X1 <- make_design(n_sobol, param_names, binf, bsup)
 X2 <- make_design(n_sobol, param_names, binf, bsup)
 
 s <- sobol2007(model = NULL, X1 = X1, X2 = X2, nboot = 100)
-cat("Saltelli design has", nrow(s$X), "rows\n")
+cli_alert_info("Saltelli design has {nrow(s$X)} rows")
 
 # Expand to full Params CSV
 design_full <- s$X
@@ -101,7 +101,7 @@ design_full$n     <- as.integer(design_full$n)
 design_full$t_max <- as.integer(design_full$t_max)
 
 write.csv(design_full, "design_sobol.csv", row.names = FALSE)
-cat("Wrote design_sobol.csv\n")
+cli_alert_info("Wrote design_sobol.csv")
 
 # ---------------------------------------------------------------------------
 # Run the Rust binary
@@ -109,7 +109,7 @@ cat("Wrote design_sobol.csv\n")
 binary <- "./target/release/escalation"
 if (!file.exists(binary)) stop("Binary not found — run 'cargo build --release'")
 
-cat("Running binary...\n")
+cli_alert_info("Running binary...")
 result <- processx::run(
   binary,
   c("sobol", "--design", "design_sobol.csv", "--output", "sobol_raw.csv"),
@@ -126,7 +126,7 @@ raw <- read.csv("sobol_raw.csv")
 psi_vals <- raw$psi[seq(1, nrow(raw), by = 2)]
 psi_vals[is.na(psi_vals)] <- 0
 
-tell(s, psi_vals)
+s <- tell(s, psi_vals)
 
 results <- data.frame(
   param = param_names,
@@ -138,6 +138,6 @@ results <- data.frame(
 results <- results[order(-results$ST), ]
 write.csv(results, "sobol_results.csv", row.names = FALSE)
 
-cat("\nSobol results (ranked by ST):\n")
+cli_alert_info("Sobol results (ranked by ST):")
 print(results, digits = 3)
-cat("\nWrote sobol_results.csv\n")
+cli_alert_info("Wrote sobol_results.csv")

@@ -4,13 +4,14 @@
 # aggregates replicates, fits Matern-5/2 ARD GPs on Psi and tau_psi via
 # DiceKriging, validates on hold-out, and saves model objects + diagnostics.
 #
-# Prerequisites: install.packages(c("lhs", "DiceKriging", "dplyr"))
+# Prerequisites: install.packages(c("lhs", "DiceKriging", "dplyr", "cli"))
 # Run from project root: Rscript analysis/gp_train.R
 
 library(lhs)
 library(DiceKriging)
 library(dplyr)
 library(jsonlite)
+library(cli)
 
 set.seed(42)
 
@@ -36,17 +37,17 @@ if (file.exists("sobol_results.csv")) {
   sobol_df <- read.csv("sobol_results.csv")
   sobol_df <- sobol_df[!(sobol_df$param %in% FIXED_EXCLUDE), ]
   param_names <- as.character(sobol_df$param[seq_len(min(TOP_N, nrow(sobol_df)))])
-  cat("Using top", length(param_names), "parameters from Sobol (delta excluded):\n",
-      paste(param_names, collapse = ", "), "\n")
+  cli_alert_info("Using top {length(param_names)} parameters from Sobol \\
+                  (delta excluded): {paste(param_names, collapse = ', ')}")
 } else if (file.exists("morris_results.csv")) {
   morris_df <- read.csv("morris_results.csv")
   morris_df <- morris_df[!(morris_df$param %in% FIXED_EXCLUDE), ]
   param_names <- as.character(morris_df$param[seq_len(min(TOP_N, nrow(morris_df)))])
-  cat("sobol_results.csv not found; using top", length(param_names),
-      "parameters from Morris (delta excluded)\n")
+  cli_alert_warning("sobol_results.csv not found; using top {length(param_names)} \\
+                     parameters from Morris (delta excluded)")
 } else {
   param_names <- all_param_names
-  cat("No prior results; using all", length(param_names), "parameters\n")
+  cli_alert_warning("No prior results; using all {length(param_names)} parameters")
 }
 p <- length(param_names)
 
@@ -75,7 +76,7 @@ fixed <- list(
 # LHS design
 # ---------------------------------------------------------------------------
 N_LHS <- 1000
-cat("Generating LHS design (N=", N_LHS, ", p=", p, ")...\n")
+cli_alert_info("Generating LHS design (N={N_LHS}, p={p})...")
 lhs_unit <- maximinLHS(N_LHS, p)
 design_scaled <- as.data.frame(lhs_unit)
 colnames(design_scaled) <- param_names
@@ -92,7 +93,7 @@ design_full$n     <- as.integer(design_full$n)
 design_full$t_max <- as.integer(design_full$t_max)
 
 write.csv(design_full, "design_lhs.csv", row.names = FALSE)
-cat("Wrote design_lhs.csv\n")
+cli_alert_info("Wrote design_lhs.csv")
 
 # ---------------------------------------------------------------------------
 # Run Rust gp-train subcommand (5 replicates per design point)
@@ -101,7 +102,7 @@ binary    <- "./target/release/escalation"
 n_rep     <- 5L
 if (!file.exists(binary)) stop("Binary not found — run 'cargo build --release'")
 
-cat("Running binary (", N_LHS, "design points x", n_rep, "replicates)...\n")
+cli_alert_info("Running binary ({N_LHS} design points x {n_rep} replicates)...")
 result <- processx::run(
   binary,
   c("gp-train",
@@ -143,7 +144,7 @@ design_ids <- seq_len(N_LHS)
 stopifnot(nrow(gp_data) == N_LHS)
 gp_data <- bind_cols(design_scaled[design_ids, ], gp_data)
 write.csv(gp_data, "gp_data.csv", row.names = FALSE)
-cat("Wrote gp_data.csv\n")
+cli_alert_info("Wrote gp_data.csv")
 
 # ---------------------------------------------------------------------------
 # 80/20 train/hold-out split stratified by psi_mean quintile
@@ -157,7 +158,7 @@ train_idx <- unlist(lapply(split(seq_len(N_LHS), gp_data$quintile), function(idx
   sample(idx, size = floor(0.8 * length(idx)))
 }))
 test_idx  <- setdiff(seq_len(N_LHS), train_idx)
-cat("Train:", length(train_idx), "  Test:", length(test_idx), "\n")
+cli_alert_info("Train: {length(train_idx)}  Test: {length(test_idx)}")
 
 X_train <- gp_data[train_idx, param_names, drop = FALSE]
 X_test  <- gp_data[test_idx,  param_names, drop = FALSE]
@@ -168,8 +169,8 @@ tau_train <- gp_data$tau_psi_mean[train_idx]
 # ---------------------------------------------------------------------------
 # Fit GPs
 # ---------------------------------------------------------------------------
-cat("Fitting GP on Psi (n_train=", nrow(X_train), ", p=", p, ")...\n")
-cat("  (DiceKriging Cholesky: O(n^3), may take several minutes)\n")
+cli_alert_info("Fitting GP on Psi (n_train={nrow(X_train)}, p={p})...")
+cli_alert_info("DiceKriging Cholesky is O(n^3) — may take several minutes")
 
 noise_var_train <- gp_data$psi_sd[train_idx]^2
 noise_var_train[noise_var_train == 0] <- 1e-6  # avoid zero noise
@@ -184,7 +185,7 @@ fit_psi <- km(
   control    = list(trace = FALSE)
 )
 
-cat("Fitting GP on tau_psi...\n")
+cli_alert_info("Fitting GP on tau_psi...")
 fit_tau <- km(
   formula    = ~1,
   design     = X_train,
@@ -196,7 +197,7 @@ fit_tau <- km(
 
 saveRDS(fit_psi, "gp_psi.rds")
 saveRDS(fit_tau, "gp_tau.rds")
-cat("Saved gp_psi.rds and gp_tau.rds\n")
+cli_alert_info("Saved gp_psi.rds and gp_tau.rds")
 
 # ---------------------------------------------------------------------------
 # Validation on hold-out
@@ -216,8 +217,7 @@ validation <- data.frame(
   value  = c(rmse_psi, rmse_tau, coverage_psi)
 )
 write.csv(validation, "gp_validation.csv", row.names = FALSE)
-cat("Validation — RMSE(Psi):", round(rmse_psi, 4),
-    "  Coverage(Psi):", round(coverage_psi, 3), "\n")
+cli_alert_info("Validation: RMSE(Psi)={round(rmse_psi, 4)}  Coverage(Psi)={round(coverage_psi, 3)}")
 
 # ---------------------------------------------------------------------------
 # Hyperparameters: ARD length scales and output variance
@@ -241,6 +241,6 @@ meta <- data.frame(
 hyperparams <- rbind(hyperparams, meta)
 write.csv(hyperparams, "gp_hyperparams.csv", row.names = FALSE)
 
-cat("\nARD length scales (short = sensitive):\n")
+cli_alert_info("ARD length scales (short = sensitive):")
 print(hyperparams[hyperparams$param %in% param_names, c("param", "ell")], digits = 3)
-cat("Wrote gp_hyperparams.csv\n")
+cli_alert_info("Wrote gp_hyperparams.csv")

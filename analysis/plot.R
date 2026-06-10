@@ -5,12 +5,13 @@
 #   plots/ard_lengths.png       — ARD length scale bar chart
 #   plots/sobol_comparison.png  — Grouped S_i / S_Ti comparison across methods
 #
-# Prerequisites: install.packages(c("ggplot2", "dplyr", "tidyr"))
+# Prerequisites: install.packages(c("ggplot2", "dplyr", "tidyr", "cli"))
 # Run from project root: Rscript analysis/plot.R
 
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(cli)
 
 dir.create("plots", showWarnings = FALSE)
 
@@ -23,7 +24,7 @@ phase_files <- list.files(".", pattern = "^phase_.*\\.csv$")
 phase_files <- phase_files[!grepl("_tau\\.csv$", phase_files)]
 
 if (length(phase_files) == 0) {
-  cat("No phase CSV files found — run gp_phase.R first\n")
+  cli_alert_warning("No phase CSV files found — run gp_phase.R first")
 } else {
   for (f in phase_files) {
     tag <- sub("^phase_", "", sub("\\.csv$", "", f))
@@ -46,7 +47,7 @@ if (length(phase_files) == 0) {
 
     out <- file.path("plots", paste0("phase_", tag, ".png"))
     ggsave(out, p_phase, width = 7, height = 5, dpi = 300)
-    cat("Saved", out, "\n")
+    cli_alert_info("Saved {out}")
   }
 }
 
@@ -54,7 +55,7 @@ if (length(phase_files) == 0) {
 # ARD length scales
 # ---------------------------------------------------------------------------
 if (!file.exists("gp_hyperparams.csv")) {
-  cat("gp_hyperparams.csv not found — skipping ARD plot\n")
+  cli_alert_warning("gp_hyperparams.csv not found — skipping ARD plot")
 } else {
   hp <- read.csv("gp_hyperparams.csv") %>%
     filter(!is.na(sensitivity)) %>%
@@ -71,7 +72,7 @@ if (!file.exists("gp_hyperparams.csv")) {
     )
 
   ggsave("plots/ard_lengths.png", p_ard, width = 6, height = 4, dpi = 300)
-  cat("Saved plots/ard_lengths.png\n")
+  cli_alert_info("Saved plots/ard_lengths.png")
 }
 
 # ---------------------------------------------------------------------------
@@ -124,10 +125,12 @@ if (length(sources) >= 2) {
     theme(legend.position = "bottom")
 
   ggsave("plots/sobol_comparison.png", p_sobol, width = 7, height = 5, dpi = 300)
-  cat("Saved plots/sobol_comparison.png\n")
+  cli_alert_info("Saved plots/sobol_comparison.png")
 } else {
-  cat("Need at least 2 of {morris_results.csv, sobol_results.csv, sobol_gp.csv} ",
-      "for comparison plot\n")
+  cli_alert_warning(
+    "Need at least 2 of {{morris_results.csv, sobol_results.csv, sobol_gp.csv}} \\
+     for comparison plot"
+  )
 }
 
-cat("Done.\n")
+cli_alert_info("Done.")

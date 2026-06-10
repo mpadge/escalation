@@ -52,27 +52,27 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 3. `ego_net.rs` — precomputed neighbourhood structures
 
-- [ ] Implement `r_max(alpha: f64, theta: u8, w_avg: f64) -> u8`:
+- [x] Implement `r_max(alpha: f64, theta: u8, w_avg: f64) -> u8`:
   `ceil(-ln(0.01) / (alpha * w_avg)).max(theta).max(2)`, capped at 10
-- [ ] For each agent i, collect all agents j with `hop_dist[i,j] <= r_max`, sorted by hop
+- [x] For each agent i, collect all agents j with `hop_dist[i,j] <= r_max`, sorted by hop
   depth then agent index; store as flat ragged array `neighbour_data: Vec<u32>` with
   `shell_offsets: Vec<[usize; 2]>` (start/end indices per agent)
-- [ ] Store parallel `hop_data: Vec<u8>` in same ragged layout as `neighbour_data`
-- [ ] For each agent i, collect audience: agents j with `hop_dist[i,j] <= θ`; store as
+- [x] Store parallel `hop_data: Vec<u8>` in same ragged layout as `neighbour_data`
+- [x] For each agent i, collect audience: agents j with `hop_dist[i,j] <= θ`; store as
   `audience_data: Vec<u32>` with `audience_offsets: Vec<[usize; 2]>`
-- [ ] For each (i, j) pair in i's ego-net, record the ordered edge sequence of the
+- [x] For each (i, j) pair in i's ego-net, record the ordered edge sequence of the
   shortest topological path from i to j: `path_edges: Vec<Vec<Vec<(u32,u32)>>>`
   (outer index = agent, middle = neighbour index within ego-net, inner = hops as (u,v))
-- [ ] Build inverted index `edge_to_paths: HashMap<(u32,u32), Vec<(u32,usize)>>` mapping
+- [x] Build inverted index `edge_to_paths: HashMap<(u32,u32), Vec<(u32,usize)>>` mapping
   directed edge (u,v) → list of (agent i, neighbour_idx) whose shortest path uses (u,v)
-- [ ] Compute initial `weighted_dist: Vec<f64>` in same ragged layout as `neighbour_data`:
+- [x] Compute initial `weighted_dist: Vec<f64>` in same ragged layout as `neighbour_data`:
   for each (i,j) pair, sum 1/W_{uv} along the path_edges sequence
-- [ ] Implement `AliasTable` (Vose's method): `new(weights: &[f64]) -> AliasTable` and
+- [x] Implement `AliasTable` (Vose's method): `new(weights: &[f64]) -> AliasTable` and
   `sample(&self, rng: &mut impl Rng) -> usize` in O(1)
-- [ ] Build initial `alias_tables: Vec<AliasTable>` from `weighted_dist` slices,
+- [x] Build initial `alias_tables: Vec<AliasTable>` from `weighted_dist` slices,
   one per agent, over that agent's ego-net
-- [ ] Unit test: alias table samples match expected distribution for small known weights
-- [ ] Unit test: ego-net for a hub node in a BA graph contains expected shell sizes
+- [x] Unit test: alias table samples match expected distribution for small known weights
+- [x] Unit test: ego-net for a hub node in a BA graph contains expected shell sizes
 
 ---
 

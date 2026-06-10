@@ -321,7 +321,7 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
   document the fixed values in a `defaults.json`
 - [x] Run Morris (Stage 1): execute `analysis/morris.R` on full model; inspect μ* and σ;
   identify ~6 parameters with high μ*; record findings in `specs/000-initial-build/results/morris.md`
-- [ ] Run Sobol (Stage 2): execute `analysis/sobol.R` on reduced set; record S_i, S_Ti,
+- [x] Run Sobol (Stage 2): execute `analysis/sobol.R` on reduced set; record S_i, S_Ti,
   S_ij findings in `specs/000-initial-build/results/sobol.md`
 - [ ] Run GP emulation (Stage 3): execute full `analysis/gp_train.R` + `analysis/gp_phase.R`
   pipeline; validate GP; produce phase diagrams; record findings in

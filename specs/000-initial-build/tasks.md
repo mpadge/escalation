@@ -315,9 +315,9 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 11. Phase 3 validation and parameter reduction
 
-- [ ] Run Stage 0 manually: verify the 6 ratio reparametrisations are implemented as
+- [x] Run Stage 0 manually: verify the 6 ratio reparametrisations are implemented as
   `Params` helper methods and used consistently throughout the simulation
-- [ ] Fix `w_min`, `w_max`, `sigma_drift`, `rho_contested`, `eta_trauma` at central values;
+- [x] Fix `w_min`, `w_max`, `sigma_drift`, `rho_contested`, `eta_trauma` at central values;
   document the fixed values in a `defaults.json`
 - [ ] Run Morris (Stage 1): execute `analysis/morris.R` on full model; inspect μ* and σ;
   identify ~6 parameters with high μ*; record findings in `specs/000-initial-build/results/morris.md`

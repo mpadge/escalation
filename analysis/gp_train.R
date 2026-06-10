@@ -10,6 +10,7 @@
 library(lhs)
 library(DiceKriging)
 library(dplyr)
+library(jsonlite)
 
 set.seed(42)
 
@@ -47,14 +48,17 @@ p <- length(param_names)
 binf <- all_binf[param_names]
 bsup <- all_bsup[param_names]
 
+# Structural constants from defaults.json; inactive free params at midpoints.
+d <- jsonlite::fromJSON("defaults.json")
 fixed <- list(
-  n = 200L, mu0 = 0.5, sigma0 = 0.25,
-  c = 0.5, e = 0.5,
-  dw_coop = 0.15, dw_sub = 0.15, dw_excl = 0.1,
-  eta = 0.1,
-  delta_direct = 0.05, delta_exploit = 0.05,
-  w_min = 0.05, w_max = 3.0,
-  sigma_drift = 0.025, rho_contested = 0.55, eta_trauma = 0.1,
+  n = as.integer(d$n), mu0 = 0.5, sigma0 = d$sigma0,
+  c = d$c, e = d$e,
+  dw_coop = d$dw_coop, dw_sub = d$dw_sub, dw_excl = d$dw_excl,
+  eta = d$eta,
+  delta_direct = d$delta_direct, delta_exploit = d$delta_exploit,
+  w_min = d$w_min, w_max = d$w_max,
+  sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
+  eta_trauma = d$eta_trauma,
   t_max = 5000L,
   gamma = 3.0, lambda = 3.0, alpha = 1.0, theta = 2L, beta = 1.5,
   w_win = 1.0, b = 1.0, w_loss = 1.0, dw_obs = 0.1, dw_bridge = 0.1,

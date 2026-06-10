@@ -56,6 +56,12 @@ bsup <- all_bsup[param_names]
 
 # Structural constants from defaults.json; inactive free params at midpoints.
 d <- jsonlite::fromJSON("defaults.json")
+log_dir <- if (!is.null(d$log_dir)) d$log_dir else "/tmp/escalation"
+dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+old_done <- list.files(log_dir, pattern = "\\.done$", full.names = TRUE)
+if (length(old_done) > 0) file.remove(old_done)
+cli_alert_info("Progress files will be written to {log_dir}")
+
 fixed <- list(
   n = as.integer(d$n), mu0 = 0.5, sigma0 = d$sigma0,
   c = d$c, e = d$e,
@@ -108,7 +114,8 @@ result <- processx::run(
   c("gp-train",
     "--design",     "design_lhs.csv",
     "--replicates", as.character(n_rep),
-    "--output",     "gp_train_raw.csv"),
+    "--output",     "gp_train_raw.csv",
+    "--log-dir",    log_dir),
   echo = TRUE, error_on_status = FALSE
 )
 if (result$status != 0) stop("Binary failed: ", result$stderr)

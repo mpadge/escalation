@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use rayon::prelude::*;
 
 use crate::aggregate::{aggregate, compute_tau_psi, RunSummary};
@@ -45,14 +48,24 @@ pub fn run_paired(
 }
 
 /// Run all paired simulations in parallel over the given seeds.
+///
+/// If `log_dir` is `Some`, writes a `{id:06}.done` file there after each
+/// completed pair — one file per (pair, seed) combination. Callers can
+/// watch the file count to track progress without polling stdout.
 pub fn run_experiment(
     pairs: &[(Params, Params)],
     seeds: &[u64],
     zeta: f64,
+    log_dir: Option<&std::path::Path>,
 ) -> Vec<(RunSummary, RunSummary)> {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let log_dir: Option<Arc<std::path::PathBuf>> = log_dir.map(|p| Arc::new(p.to_owned()));
+
     pairs
         .par_iter()
         .flat_map(|(p_lo, p_hi)| {
+            let counter = Arc::clone(&counter);
+            let log_dir = log_dir.clone();
             seeds.par_iter().map(move |&seed| {
                 let series_lo = run_simulation(p_lo, seed);
                 let series_hi = run_simulation(p_hi, seed);
@@ -65,6 +78,16 @@ pub fn run_experiment(
                 hi.psi = Some(psi);
                 lo.tau_psi = Some(tau);
                 hi.tau_psi = Some(tau);
+
+                if let Some(ref dir) = log_dir {
+                    let id = counter.fetch_add(1, Ordering::Relaxed);
+                    let path = dir.join(format!("{id:06}.done"));
+                    let _ = std::fs::write(
+                        &path,
+                        format!("psi={psi:.6}\nseed={seed}\nrow={id}\n"),
+                    );
+                }
+
                 (lo, hi)
             })
         })
@@ -103,7 +126,7 @@ mod tests {
             .map(|_| (base.with_mu0(mu0_lo), base.with_mu0(mu0_hi)))
             .collect();
         let seeds: Vec<u64> = (0..1).collect();
-        let results = run_experiment(&pairs, &seeds, 0.05);
+        let results = run_experiment(&pairs, &seeds, 0.05, None);
 
         assert_eq!(results.len(), 10, "10 pairs × 1 seed = 10 results");
 

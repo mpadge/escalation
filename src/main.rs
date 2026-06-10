@@ -91,6 +91,9 @@ struct SensitivityArgs {
     /// Convergence threshold ζ
     #[arg(long, default_value_t = 0.05)]
     zeta: f64,
+    /// Directory for per-pair progress files ({id:06}.done); created if absent
+    #[arg(long, default_value = "/tmp/escalation")]
+    log_dir: PathBuf,
 }
 
 #[derive(Args)]
@@ -110,6 +113,9 @@ struct GpTrainArgs {
     /// Convergence threshold ζ
     #[arg(long, default_value_t = 0.05)]
     zeta: f64,
+    /// Directory for per-pair progress files ({id:06}.done); created if absent
+    #[arg(long, default_value = "/tmp/escalation")]
+    log_dir: PathBuf,
 }
 
 fn main() {
@@ -149,7 +155,7 @@ fn cmd_run(args: RunArgs) {
         .map(|_| (base.with_mu0(args.mu0_lo), base.with_mu0(args.mu0_hi)))
         .collect();
 
-    let results = run_experiment(&pairs, &seeds, args.zeta);
+    let results = run_experiment(&pairs, &seeds, args.zeta, None);
     let summaries: Vec<RunSummary> = results
         .iter()
         .flat_map(|(lo, hi)| [lo.clone(), hi.clone()])
@@ -205,6 +211,11 @@ fn cmd_sensitivity(args: SensitivityArgs, _mode: &str) {
     if let Some(t) = args.threads {
         set_num_threads(t);
     }
+    std::fs::create_dir_all(&args.log_dir).unwrap_or_else(|e| {
+        eprintln!("Cannot create log directory {}: {e}", args.log_dir.display());
+        std::process::exit(1);
+    });
+
     // Read design matrix; each row is a parameter vector in the CSV schema of Params
     let mut rdr = csv::Reader::from_path(&args.design).unwrap_or_else(|e| {
         eprintln!("Cannot read design file {}: {e}", args.design.display());
@@ -221,7 +232,7 @@ fn cmd_sensitivity(args: SensitivityArgs, _mode: &str) {
         .collect();
 
     let seeds = vec![0u64];
-    let results = run_experiment(&param_pairs, &seeds, args.zeta);
+    let results = run_experiment(&param_pairs, &seeds, args.zeta, Some(&args.log_dir));
     let summaries: Vec<RunSummary> = results
         .iter()
         .flat_map(|(lo, hi)| [lo.clone(), hi.clone()])
@@ -238,6 +249,11 @@ fn cmd_gp_train(args: GpTrainArgs) {
     if let Some(t) = args.threads {
         set_num_threads(t);
     }
+    std::fs::create_dir_all(&args.log_dir).unwrap_or_else(|e| {
+        eprintln!("Cannot create log directory {}: {e}", args.log_dir.display());
+        std::process::exit(1);
+    });
+
     let mut rdr = csv::Reader::from_path(&args.design).unwrap_or_else(|e| {
         eprintln!("Cannot read design file: {e}");
         std::process::exit(1);
@@ -257,7 +273,7 @@ fn cmd_gp_train(args: GpTrainArgs) {
         .map(|p| (p.with_mu0(0.4), p.with_mu0(0.6)))
         .collect();
 
-    let results = run_experiment(&pairs, &seeds, args.zeta);
+    let results = run_experiment(&pairs, &seeds, args.zeta, Some(&args.log_dir));
     let summaries: Vec<RunSummary> = results
         .iter()
         .flat_map(|(lo, hi)| [lo.clone(), hi.clone()])

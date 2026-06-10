@@ -80,54 +80,54 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 *Phase 1: network W is fixed; only ε and π evolve. No edge updates, no decay.*
 
-- [ ] Define `SimState` struct:
+- [x] Define `SimState` struct:
   `w: Vec<f64>`, `epsilon: Vec<f64>`, `payoff: Vec<f64>`,
   `weighted_dist: Vec<f64>`, `alias_tables: Vec<AliasTable>`
-- [ ] Define `MetricSeries` struct with `Vec<f64>` fields for each metric and `Vec<u32>` for
+- [x] Define `MetricSeries` struct with `Vec<f64>` fields for each metric and `Vec<u32>` for
   timesteps; fields: `t`, `mean_epsilon`, `var_epsilon`, `gini_k`, `epsilon_k_corr`,
   `mean_edge_weight`, `regime_dist` (`Vec<[f64;3]>`), `modularity`, `rich_club`
-- [ ] Implement `run_simulation(params: &Params, seed: u64) -> MetricSeries` as the main
+- [x] Implement `run_simulation(params: &Params, seed: u64) -> MetricSeries` as the main
   entry point; pure function, no I/O, no global state
-- [ ] Implement focal agent and group sampling:
+- [x] Implement focal agent and group sampling:
   - Focal agent: `Uniform::new(0, N).sample(rng)`
   - Group size m: `Poisson(λ).sample(rng) + 1`; redraw if m == 1
   - Partners: sample m-1 indices from `alias_tables[i*]` without replacement
     (rejection sampling within the alias table; ego-net size >> m in practice)
-- [ ] Implement strategy realisation: each agent i in G draws `Bernoulli(ε_i)`; compute
+- [x] Implement strategy realisation: each agent i in G draws `Bernoulli(ε_i)`; compute
   n_E, n_C, φ = n_E / m
-- [ ] Implement audience multiplier Ω_i for each i in G:
+- [x] Implement audience multiplier Ω_i for each i in G:
   `1.0 + (A_i(θ) + m - 1).ln_1p() / (N as f64).ln()`
   where `A_i(θ) = audience_offsets[i][1] - audience_offsets[i][0]`
-- [ ] Implement regime dispatch: φ > 0.75 → CC, 0.25..=0.75 → X, < 0.25 → CK
-- [ ] Implement `handle_consensus_conflict` (payoffs and ε updates only in Phase 1):
+- [x] Implement regime dispatch: φ > 0.75 → CC, 0.25..=0.75 → X, < 0.25 → CK
+- [x] Implement `handle_consensus_conflict` (payoffs and ε updates only in Phase 1):
   - Pile-on: each conciliator q: π_q -= n_E * e
   - Tournament: sort escalators by k_i desc; pair sequentially; resolve via logistic
     `σ(β * (k_p - k_q))`; winner: π += w_win - c; loser: π -= w_loss + c
   - No edge updates in Phase 1
-- [ ] Implement `handle_contested` (payoffs and ε only):
+- [x] Implement `handle_contested` (payoffs and ε only):
   - Greedy E→C pairing by weighted distance; π updates
   - Residual E→E tournament
   - C solidarity payoffs
   - Lone hawk penalty payoff
-- [ ] Implement `handle_consensus_cooperation` (payoffs only):
+- [x] Implement `handle_consensus_cooperation` (payoffs only):
   - π_i += b * (1.0 + n_C as f64).ln() for cooperators
   - Escalator exclusion payoff penalty
-- [ ] Implement propensity updates for participants:
+- [x] Implement propensity updates for participants:
   - R_i: +1 if strategy paid off, -1 if it didn't (compare π before/after)
   - O_i: mean R sign of same-strategy group members
   - ξ_i ~ Normal(0, σ_drift)
   - Δε = η*R_i + η_obs*O_i + ξ_i; clip to [0,1]
-- [ ] Implement observer propensity updates for non-participants within audience radius
-- [ ] Implement metric recording every RECORD_INTERVAL steps:
+- [x] Implement observer propensity updates for non-participants within audience radius
+- [x] Implement metric recording every RECORD_INTERVAL steps:
   - mean_epsilon, var_epsilon: O(N) scan
   - gini_k: sort k_i values, compute Gini coefficient
   - epsilon_k_corr: Pearson correlation of ε_i and k_i vectors
   - mean_edge_weight: mean of non-zero W entries
   - regime_dist: running counts of CC/X/CK, normalised at record time
   - modularity and rich_club: computed every SLOW_INTERVAL = 10×RECORD_INTERVAL
-- [ ] Unit test: with all ε_i = 1.0, all encounters are CC; verify tournament logic
-- [ ] Unit test: with all ε_i = 0.0, all encounters are CK; verify cooperation payoff
-- [ ] Unit test: mean_epsilon drifts in expected direction when η is large and one strategy
+- [x] Unit test: with all ε_i = 1.0, all encounters are CC; verify tournament logic
+- [x] Unit test: with all ε_i = 0.0, all encounters are CK; verify cooperation payoff
+- [x] Unit test: mean_epsilon drifts in expected direction when η is large and one strategy
   consistently outperforms
 
 ---

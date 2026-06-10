@@ -7,12 +7,12 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 0. Project scaffold
 
-- [ ] `cargo new --lib escalation` with `src/main.rs` entry point
-- [ ] Add all dependencies to `Cargo.toml`:
+- [x] `cargo new --lib escalation` with `src/main.rs` entry point
+- [x] Add all dependencies to `Cargo.toml`:
   `rand`, `rand_distr`, `rayon`, `csv`, `serde` (derive feature), `clap`; dev: `approx`
-- [ ] Create stub files: `params.rs`, `network.rs`, `ego_net.rs`, `sim.rs`,
+- [x] Create stub files: `params.rs`, `network.rs`, `ego_net.rs`, `sim.rs`,
   `aggregate.rs`, `experiment.rs`, `output.rs`; declare all as `mod` in `lib.rs`
-- [ ] CI smoke test: `cargo build` and `cargo test` both pass on empty stubs
+- [x] CI smoke test: `cargo build` and `cargo test` both pass on empty stubs
 
 ---
 

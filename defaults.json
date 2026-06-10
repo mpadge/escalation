@@ -24,5 +24,9 @@
 
   "_comment_sobol": "Additional parameters for sobol.R script",
   "top_n": 6,
-  "n_sobol": 1000
+  "n_sobol": 1000,
+
+  "_comment_gp": "Design and replicate budget for gp_train.R",
+  "n_lhs": 1000,
+  "n_rep_gp": 5
 }

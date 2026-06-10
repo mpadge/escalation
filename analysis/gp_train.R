@@ -81,7 +81,7 @@ fixed <- list(
 # ---------------------------------------------------------------------------
 # LHS design
 # ---------------------------------------------------------------------------
-N_LHS <- 1000
+N_LHS <- as.integer(if (!is.null(d$n_lhs)) d$n_lhs else 1000L)
 cli_alert_info("Generating LHS design (N={N_LHS}, p={p})...")
 lhs_unit <- maximinLHS(N_LHS, p)
 design_scaled <- as.data.frame(lhs_unit)
@@ -105,10 +105,12 @@ cli_alert_info("Wrote design_lhs.csv")
 # Run Rust gp-train subcommand (5 replicates per design point)
 # ---------------------------------------------------------------------------
 binary    <- "./target/release/escalation"
-n_rep     <- 5L
+n_rep     <- as.integer(if (!is.null(d$n_rep_gp)) d$n_rep_gp else 5L)
 if (!file.exists(binary)) stop("Binary not found — run 'cargo build --release'")
 
-cli_alert_info("Running binary ({N_LHS} design points x {n_rep} replicates)...")
+n_expected <- N_LHS * n_rep
+cli_alert_info("Running binary ({N_LHS} design points x {n_rep} replicates = {n_expected} pairs)...")
+cli_alert_info("Expected {n_expected} progress files — monitor: ls {log_dir}/*.done | wc -l")
 result <- processx::run(
   binary,
   c("gp-train",

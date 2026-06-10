@@ -202,11 +202,11 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 8. `output.rs` — CSV writing
 
-- [ ] Implement `write_summaries(path: &Path, records: &[RunSummary])` using the `csv` crate
+- [x] Implement `write_summaries(path: &Path, records: &[RunSummary])` using the `csv` crate
   with serde serialisation; writes header on first call
-- [ ] Implement `write_series(dir: &Path, summary: &RunSummary, series: &MetricSeries)`
+- [x] Implement `write_series(dir: &Path, summary: &RunSummary, series: &MetricSeries)`
   for the `--dump-series` diagnostic mode; one file per run named `{seed}_{mu0:.3}.csv`
-- [ ] Unit test: round-trip a `RunSummary` through CSV write → read; verify all f64 fields
+- [x] Unit test: round-trip a `RunSummary` through CSV write → read; verify all f64 fields
   match to 6 significant figures
 
 ---

@@ -17,6 +17,7 @@ pub struct SimState {
     pub alias_tables: Vec<AliasTable>,
 }
 
+#[derive(Clone)]
 pub struct MetricSeries {
     pub t: Vec<u32>,
     pub mean_epsilon: Vec<f64>,

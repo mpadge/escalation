@@ -3,7 +3,7 @@ use crate::sim::{MetricSeries, T_MAX};
 
 const TAIL_FRAC: f64 = 0.2;
 
-#[derive(serde::Serialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct RunSummary {
     // Identity
     pub seed: u64,

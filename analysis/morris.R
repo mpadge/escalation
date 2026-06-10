@@ -116,13 +116,18 @@ if (any(is.na(psi_vals))) {
 # ---------------------------------------------------------------------------
 # Compute Morris sensitivity indices
 # ---------------------------------------------------------------------------
-tell(m, psi_vals)
+m <- tell(m, psi_vals)
+
+# sensitivity 1.30+ stores elementary effects in m$ee; mu*/sigma computed here
+mu_star <- apply(m$ee, 2, function(e) mean(abs(e)))
+sigma   <- apply(m$ee, 2, sd)
+mu      <- apply(m$ee, 2, mean)
 
 results <- data.frame(
   param   = param_names,
-  mu_star = m$mu.star,
-  sigma   = m$sigma,
-  mu      = m$mu
+  mu_star = mu_star,
+  sigma   = sigma,
+  mu      = mu
 )
 results <- results[order(-results$mu_star), ]
 write.csv(results, "morris_results.csv", row.names = FALSE)

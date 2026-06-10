@@ -319,7 +319,7 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
   `Params` helper methods and used consistently throughout the simulation
 - [x] Fix `w_min`, `w_max`, `sigma_drift`, `rho_contested`, `eta_trauma` at central values;
   document the fixed values in a `defaults.json`
-- [ ] Run Morris (Stage 1): execute `analysis/morris.R` on full model; inspect μ* and σ;
+- [x] Run Morris (Stage 1): execute `analysis/morris.R` on full model; inspect μ* and σ;
   identify ~6 parameters with high μ*; record findings in `specs/000-initial-build/results/morris.md`
 - [ ] Run Sobol (Stage 2): execute `analysis/sobol.R` on reduced set; record S_i, S_Ti,
   S_ij findings in `specs/000-initial-build/results/sobol.md`

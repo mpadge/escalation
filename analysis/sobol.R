@@ -93,7 +93,9 @@ X1 <- make_design(n_sobol, param_names, binf, bsup)
 X2 <- make_design(n_sobol, param_names, binf, bsup)
 
 s <- sobol2007(model = NULL, X1 = X1, X2 = X2, nboot = 100)
-cli_alert_info("Saltelli design has {nrow(s$X)} rows")
+n_expected <- nrow(s$X)
+cli_alert_info("Saltelli design has {n_expected} rows")
+cli_alert_info("Expected {n_expected} progress files — monitor: ls {log_dir}/*.done | wc -l")
 
 # Expand to full Params CSV
 design_full <- s$X

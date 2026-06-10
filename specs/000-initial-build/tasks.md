@@ -236,7 +236,7 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 *These are scripts in `analysis/`, not Rust. Rust binary is treated as a black box.*
 *Required packages: `sensitivity`, `lhs`, `DiceKriging`, `dplyr`, `ggplot2`, `processx`.*
 
-- [ ] `analysis/morris.R`: generate Morris trajectories via `sensitivity::morris()` in
+- [x] `analysis/morris.R`: generate Morris trajectories via `sensitivity::morris()` in
   "design" mode, write design CSV, shell-out to Rust binary via `processx::run()`, read
   output CSV, call `sensitivity::tell()` to compute μ* and σ per parameter,
   write `morris_results.csv`
@@ -254,7 +254,7 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
             "morris_results.csv", row.names = FALSE)
   ```
 
-- [ ] `analysis/sobol.R`: Saltelli sampling via `sensitivity::sobol2007()` in design mode,
+- [x] `analysis/sobol.R`: Saltelli sampling via `sensitivity::sobol2007()` in design mode,
   run binary, call `tell()` to compute S_i / S_Ti, extract second-order S_ij for top
   parameters via `sensitivity::sobolSalt()`, write `sobol_results.csv`
 
@@ -271,7 +271,7 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
             "sobol_results.csv", row.names = FALSE)
   ```
 
-- [ ] `analysis/gp_train.R`:
+- [x] `analysis/gp_train.R`:
   - Generate LHS design via `lhs::maximinLHS(n = 1000, k = p)`, scale columns to
     parameter ranges, write `design_lhs.csv`
   - Shell-out to Rust `gp-train` subcommand; collect `gp_train.csv`
@@ -294,7 +294,7 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
   - Write `gp_hyperparams.csv`: extract `coef.cov(fit_psi)` (ARD length scales per
     parameter), `coef.var(fit_psi)` (output variance), `fit_psi@covariance@nugget`
 
-- [ ] `analysis/gp_phase.R`:
+- [x] `analysis/gp_phase.R`:
   - Load fitted GP objects (save/load via `saveRDS` / `readRDS`)
   - Identify top parameters by ARD length scale (short ℓ_d = sensitive dimension)
   - For each pair of top-ranked parameters, build 50×50 grid with other parameters at
@@ -303,7 +303,7 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
   - Emulator-based Sobol: generate 10⁶ Saltelli samples, evaluate GP means (cheap),
     feed into `sensitivity::sobol2007()` via `tell()`; write `sobol_gp.csv`
 
-- [ ] `analysis/plot.R` using `ggplot2`:
+- [x] `analysis/plot.R` using `ggplot2`:
   - Phase diagrams: `geom_tile()` for Ψ mean, `geom_contour()` overlay for Ψ sd
   - ARD length scales: `geom_col()` bar chart, parameters on x-axis, ℓ_d on y-axis
     (inverted so short bars = sensitive)

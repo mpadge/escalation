@@ -1,0 +1,128 @@
+#!/usr/bin/env Rscript
+# Morris elementary-effects screening for the escalation model.
+# Generates an OAT trajectory design, runs the Rust binary for each point (paired
+# mu0=0.4 vs mu0=0.6), and computes mu* and sigma per parameter.
+#
+# Prerequisites: install.packages(c("sensitivity", "processx", "dplyr"))
+# Run from project root: Rscript analysis/morris.R
+# Requires a release build: cargo build --release
+
+library(sensitivity)
+library(processx)
+library(dplyr)
+
+set.seed(42)
+
+# ---------------------------------------------------------------------------
+# Parameter space (12 free parameters after ratio reparametrisation)
+# ---------------------------------------------------------------------------
+param_names <- c(
+  "gamma",    # network attachment exponent
+  "lambda",   # mean group size (Poisson)
+  "alpha",    # locality / distance decay
+  "theta",    # audience radius (integer 1-4)
+  "beta",     # status-advantage multiplier
+  "w_win",    # win payoff (with c=0.5 fixed: r_win_cost = w_win/c)
+  "b",        # cooperation benefit (with e=0.5: r_coop_exploit = b/e)
+  "w_loss",   # loss cost (ratio r_loss_win = w_loss/w_win)
+  "dw_obs",   # observer edge increment (with dw_coop=0.15: r_obs_coop)
+  "dw_bridge",# bridge edge increment (with dw_sub=0.15: r_bridge_sub)
+  "eta_obs",  # observational learning rate (with eta=0.1: kappa = eta_obs/eta)
+  "delta"     # global edge decay rate
+)
+p <- length(param_names)
+
+binf <- c(gamma=2.0, lambda=1.0, alpha=0.1, theta=1.0, beta=0.0,
+          w_win=0.1, b=0.0, w_loss=0.1, dw_obs=0.0, dw_bridge=0.0,
+          eta_obs=0.001, delta=0.001)
+bsup <- c(gamma=4.0, lambda=5.0, alpha=2.0, theta=4.0, beta=3.0,
+          w_win=2.0, b=2.0, w_loss=2.0, dw_obs=0.2, dw_bridge=0.2,
+          eta_obs=0.1, delta=0.05)
+
+# Fixed parameters (not varied in this stage)
+fixed <- list(
+  n = 200L, mu0 = 0.5, sigma0 = 0.25,
+  c = 0.5, e = 0.5,
+  dw_coop = 0.15, dw_sub = 0.15, dw_excl = 0.1,
+  eta = 0.1,
+  delta_direct = 0.05, delta_exploit = 0.05,
+  w_min = 0.05, w_max = 3.0,
+  sigma_drift = 0.025, rho_contested = 0.55, eta_trauma = 0.1,
+  t_max = 2000L
+)
+
+# ---------------------------------------------------------------------------
+# Generate Morris OAT design
+# ---------------------------------------------------------------------------
+cat("Generating Morris design (r=15 trajectories, p=", p, "parameters)...\n")
+m <- morris(
+  model  = NULL,
+  factors = param_names,
+  r      = 15,
+  design = list(type = "oat", levels = 8, grid.jump = 4),
+  binf   = binf[param_names],
+  bsup   = bsup[param_names]
+)
+cat("Design has", nrow(m$X), "rows\n")
+
+# Expand to full Params CSV (all 29 fields required by the Rust binary)
+design_full <- as.data.frame(m$X)
+colnames(design_full) <- param_names
+for (nm in names(fixed)) design_full[[nm]] <- fixed[[nm]]
+design_full$theta <- pmax(1L, pmin(4L, as.integer(round(design_full$theta))))
+design_full$n     <- as.integer(design_full$n)
+design_full$t_max <- as.integer(design_full$t_max)
+
+write.csv(design_full, "design_morris.csv", row.names = FALSE)
+cat("Wrote design_morris.csv (", nrow(design_full), "rows x", ncol(design_full), "cols)\n")
+
+# ---------------------------------------------------------------------------
+# Run the Rust binary
+# ---------------------------------------------------------------------------
+binary <- "./target/release/escalation"
+if (!file.exists(binary)) {
+  stop("Binary not found at ", binary, " — run 'cargo build --release' first")
+}
+
+cat("Running binary...\n")
+result <- processx::run(
+  binary,
+  c("morris", "--design", "design_morris.csv", "--output", "morris_raw.csv"),
+  echo = TRUE,
+  error_on_status = FALSE
+)
+if (result$status != 0) {
+  stop("Binary exited with status ", result$status, "\nstderr: ", result$stderr)
+}
+
+# ---------------------------------------------------------------------------
+# Collect psi values (binary outputs 2 rows per design point: lo then hi)
+# Both rows carry the same psi; take the odd-indexed rows (lo runs).
+# ---------------------------------------------------------------------------
+raw <- read.csv("morris_raw.csv")
+if (nrow(raw) != 2 * nrow(design_full)) {
+  warning("Expected ", 2 * nrow(design_full), " rows, got ", nrow(raw))
+}
+psi_vals <- raw$psi[seq(1, nrow(raw), by = 2)]
+if (any(is.na(psi_vals))) {
+  warning(sum(is.na(psi_vals)), " NA psi values replaced with 0")
+  psi_vals[is.na(psi_vals)] <- 0
+}
+
+# ---------------------------------------------------------------------------
+# Compute Morris sensitivity indices
+# ---------------------------------------------------------------------------
+tell(m, psi_vals)
+
+results <- data.frame(
+  param   = param_names,
+  mu_star = m$mu.star,
+  sigma   = m$sigma,
+  mu      = m$mu
+)
+results <- results[order(-results$mu_star), ]
+write.csv(results, "morris_results.csv", row.names = FALSE)
+
+cat("\nMorris results (ranked by mu*):\n")
+print(results, digits = 3)
+cat("\nWrote morris_results.csv\n")

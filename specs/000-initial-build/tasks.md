@@ -18,17 +18,17 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 1. `params.rs` — parameter struct
 
-- [ ] Define `Params` struct with all 28 raw fields (N, γ, μ₀, σ₀, λ, α, θ, β, c, w_win,
+- [x] Define `Params` struct with all 28 raw fields (N, γ, μ₀, σ₀, λ, α, θ, β, c, w_win,
   w_loss, e, b, Δw_sub, Δw_coop, Δw_bridge, Δw_obs, Δw_excl, δ_direct, δ_exploit, δ,
   w_min, w_max, η, η_obs, σ_drift, ρ_contested, η_trauma)
-- [ ] Add `#[derive(Clone, serde::Serialize, serde::Deserialize)]` to `Params`
-- [ ] Implement `Params::default()` using midpoint of each suggested range from background.md
-- [ ] Implement derived-parameter helpers:
+- [x] Add `#[derive(Clone, serde::Serialize, serde::Deserialize)]` to `Params`
+- [x] Implement `Params::default()` using midpoint of each suggested range from background.md
+- [x] Implement derived-parameter helpers:
   - `r_win_cost()`, `r_coop_exploit()`, `r_loss_win()` (payoff ratios)
   - `r_obs_coop()`, `r_bridge_sub()` (edge-weight contrast ratios)
   - `kappa()` = η_obs / η
-- [ ] Implement `Params::with_mu0(&self, mu0: f64) -> Self` (clones, replaces μ₀)
-- [ ] Unit test: `Params::default()` round-trips through serde JSON without loss
+- [x] Implement `Params::with_mu0(&self, mu0: f64) -> Self` (clones, replaces μ₀)
+- [x] Unit test: `Params::default()` round-trips through serde JSON without loss
 
 ---
 

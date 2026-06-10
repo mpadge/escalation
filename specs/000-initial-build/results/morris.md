@@ -1,62 +1,70 @@
 # Morris Screening Results
 
 **Date**: 2026-06-10  
-**Design**: OAT, r = 15 trajectories, p = 12 parameters, 8 levels, grid jump 4  
+**Design**: OAT, r = 15 trajectories, p = 11 parameters, 8 levels, grid jump 4  
 **Binary settings**: N = 200, t_max = 2000, seed = 0 (paired μ₀ ∈ {0.4, 0.6})  
-**Estimand**: Ψ = (ε̄(∞)|_{μ₀=0.6} − ε̄(∞)|_{μ₀=0.4}) / 0.2
+**Estimand**: Ψ = (ε̄(∞)|_{μ₀=0.6} − ε̄(∞)|_{μ₀=0.4}) / 0.2  
+**Fixed**: `delta = 0.01` (see decision below), plus all structural params in `defaults.json`
 
-## Bug fixed
+## Notes
 
-`sensitivity` ≥ 1.30 stores raw elementary effects in `m$ee` and computes
-μ\*/σ lazily in `print.morris`; they are not stored on the object.
-Fixed `morris.R` to compute them directly via `apply(m$ee, 2, ...)`.
+- `sensitivity` ≥ 1.30 stores raw elementary effects in `m$ee`; μ\*/σ computed
+  via `apply(m$ee, 2, ...)` directly, not via `m$mu.star`.
+- `delta` was excluded from the free-parameter set before this run (fixed at
+  0.01 in `defaults.json`); see the Decision section for rationale.
 
 ## Results (ranked by μ\*)
 
-| Rank | Parameter    | μ\*    | σ      | μ       | Interpretation                          |
-|------|-------------|--------|--------|---------|------------------------------------------|
-| 1    | `w_win`     | 0.764  | 1.139  | +0.090  | Win payoff → r_win_cost dominant driver  |
-| 2    | `delta`     | 0.674  | 0.942  | −0.110  | Edge decay rate: high δ suppresses Ψ     |
-| 3    | `alpha`     | 0.617  | 0.915  | +0.175  | Locality: stronger locality raises Ψ     |
-| 4    | `lambda`    | 0.597  | 0.686  | −0.305  | Group size: larger groups reduce Ψ       |
-| 5    | `dw_obs`    | 0.554  | 0.648  | +0.532  | Observer edge boost: raises Ψ            |
-| 6    | `gamma`     | 0.508  | 0.835  | +0.269  | Network exponent: steeper hierarchy → Ψ  |
-| 7    | `dw_bridge` | 0.503  | 0.874  | −0.299  | Bridge increment (modest, high σ)        |
-| 8    | `beta`      | 0.479  | 0.706  | +0.160  | Status advantage                         |
-| 9    | `eta_obs`   | 0.455  | 0.619  | +0.060  | Observational learning rate              |
-| 10   | `theta`     | 0.421  | 0.681  | +0.069  | Audience radius                          |
-| 11   | `w_loss`    | 0.400  | 0.770  | −0.103  | Loss cost                                |
-| 12   | `b`         | 0.081  | 0.179  | +0.048  | **Cooperation benefit — near-zero μ\***  |
+| Rank | Parameter    | μ\*    | σ      | μ       | Interpretation                            |
+|------|-------------|--------|--------|---------|-------------------------------------------|
+| 1    | `dw_obs`    | 0.768  | 1.278  | +0.623  | Observer edge boost: primary Ψ driver     |
+| 2    | `eta_obs`   | 0.742  | 1.033  | +0.352  | Observational learning rate               |
+| 3    | `alpha`     | 0.605  | 0.683  | +0.319  | Locality: stronger locality raises Ψ      |
+| 4    | `gamma`     | 0.576  | 0.724  | +0.108  | Network exponent: steeper hierarchy → Ψ   |
+| 5    | `beta`      | 0.540  | 0.671  | +0.145  | Status advantage                          |
+| 6    | `w_win`     | 0.505  | 0.837  | −0.086  | Win payoff (r_win_cost); near-neutral μ   |
+| 7    | `dw_bridge` | 0.448  | 0.750  | +0.258  | Bridge edge increment                     |
+| 8    | `lambda`    | 0.447  | 0.449  | −0.393  | Group size: larger groups suppress Ψ      |
+| 9    | `theta`     | 0.249  | 0.340  | +0.007  | Audience radius (discrete)                |
+| 10   | `w_loss`    | 0.127  | 0.209  | +0.050  | Loss cost                                 |
+| 11   | `b`         | 0.035  | 0.076  | +0.027  | **Cooperation benefit — near-zero μ\***   |
 
 ## Key findings
 
-**Top 6 by μ\*** (for Sobol): `w_win`, `delta`, `alpha`, `lambda`, `dw_obs`, `gamma`
+**Top 6 by μ\*** (for Sobol): `dw_obs`, `eta_obs`, `alpha`, `gamma`, `beta`, `w_win`
 
-All six have μ\* > 0.5; the gap to rank 7 (`dw_bridge`, 0.503) is small
-so ranks 7–8 (`dw_bridge`, `beta`) are borderline candidates for inclusion.
+Clear tier break after rank 6 (μ\* drops from 0.505 to 0.448). Ranks 7–8
+(`dw_bridge`, `lambda`) are borderline; `lambda` has the most negative μ
+(−0.393) so it warrants inclusion in any cooperative-regime analysis.
 
-**`b` is safely excluded**: μ\* = 0.081, well below the rest — cooperation
-benefit has negligible first-order influence on Ψ at these parameter ranges.
+**`b` and `w_loss` safely excluded**: μ\* = 0.035 and 0.127 respectively —
+well below the tier-1 group. `theta` is marginal (0.249) but discrete-valued
+and cheap to sweep separately if needed.
 
-**High σ / μ\* ratios** (σ/μ\* > 1) for `w_win`, `delta`, `alpha`, `dw_bridge`
-indicate substantial nonlinearity or interaction effects — Sobol total-effect
-indices will be important for these.
+**High σ / μ\* ratios** (σ/μ\* > 1): `dw_obs` (1.66), `eta_obs` (1.39),
+`w_win` (1.66) — strong nonlinearity or interactions on these three.
+Sobol total-effect indices will be essential.
 
-**Sign of μ**:
-- Positive (raises Ψ): `dw_obs` > `alpha` > `gamma` > `beta` > `w_win`
-- Negative (suppresses Ψ): `lambda` > `dw_bridge` > `delta` > `w_loss`
+**Sign of μ** (direction of effect on Ψ):
+- Positive (raises Ψ): `dw_obs` >> `eta_obs` > `alpha` > `dw_bridge` > `beta` > `gamma`
+- Negative (suppresses Ψ): `lambda` > `w_win` (weakly)
 
-## Decision
+The observational learning channel (`dw_obs`, `eta_obs`) dominates —
+together they account for the two highest μ\* values, suggesting that
+audience effects are the primary mechanism driving μ₀ sensitivity.
 
-**`delta` fixed, not varied in analyses.**
-The network forgetting rate is conceptually necessary (relationships decay without
-active reinforcement) but its effect on Ψ is monotone and uninteresting for
-phase-diagram purposes: higher δ uniformly suppresses Ψ. Fixed at
-`delta = 0.01` in `defaults.json` (≈10% cumulative weight loss over a full run
-at SLOW_INTERVAL = 1,000 steps). Monotonicity is validated by
-`analysis/delta_monotone.R`.
+## Decision: delta fixed, not varied in analyses
 
-Proceed to Sobol with the top 5 remaining parameters:
-`w_win`, `alpha`, `lambda`, `dw_obs`, `gamma`
+`delta` (edge-decay rate) suppresses Ψ monotonically (confirmed by
+`analysis/delta_monotone.R`). Conceptually necessary for active-reinforcement
+network semantics but uninteresting to vary for phase-diagram purposes.
+Fixed at `delta = 0.01` in `defaults.json` (~10% cumulative weight loss
+per run at SLOW_INTERVAL = 1,000 steps).
 
-`dw_bridge` and `beta` are borderline; include if budget allows.
+## Decision: parameters for Sobol
+
+Proceed to Sobol with the top 6:
+`dw_obs`, `eta_obs`, `alpha`, `gamma`, `beta`, `w_win`
+
+`lambda` (rank 8, μ = −0.393) is a candidate for inclusion given its strong
+directional effect; add if Saltelli budget permits (increases design by 2n rows).

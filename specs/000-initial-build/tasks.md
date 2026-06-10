@@ -34,19 +34,19 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 2. `network.rs` — graph generation and fixed topology
 
-- [ ] Implement Barabási–Albert preferential-attachment generator:
+- [x] Implement Barabási–Albert preferential-attachment generator:
   - Start with a small fully-connected seed graph (m₀ = 3 nodes)
   - Add nodes one at a time up to N; each new node attaches to m = max(1, round(k̄/2))
     existing nodes with probability proportional to in-degree
   - Accept γ as a parameter controlling attachment bias: attachment probability ∝ k^γ
     (standard BA is γ=1; γ>1 steepens the hierarchy)
   - Return adjacency as `Vec<Vec<u32>>` (directed; both directions stored)
-- [ ] Assign initial edge weights: W_ij ~ Uniform(w_min, w_max), stored as flat `Vec<f64>`
+- [x] Assign initial edge weights: W_ij ~ Uniform(w_min, w_max), stored as flat `Vec<f64>`
   of length N×N with index `i*N + j`; W_ij = 0.0 for non-edges
-- [ ] Compute full N×N hop-distance matrix via BFS from each node:
+- [x] Compute full N×N hop-distance matrix via BFS from each node:
   `hop_dist: Vec<u8>` (flat N×N, value = hop count; u8::MAX for unreachable)
-- [ ] Unit test: for N=10 fully-connected graph, all hop distances are 1
-- [ ] Unit test: degree distribution of large BA graph (N=500) follows approximate power law
+- [x] Unit test: for N=10 fully-connected graph, all hop distances are 1
+- [x] Unit test: degree distribution of large BA graph (N=500) follows approximate power law
 
 ---
 

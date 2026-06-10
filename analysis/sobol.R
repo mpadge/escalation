@@ -71,7 +71,7 @@ fixed <- list(
 # ---------------------------------------------------------------------------
 # Saltelli design: X1 and X2 sampled uniformly on actual parameter ranges
 # ---------------------------------------------------------------------------
-n_sobol <- 1000   # total evaluations = n * (2p + 2); increase for production
+n_sobol <- 1000   # total evaluations = n * (2p + 2)
 cli_alert_info("Generating Saltelli design (n={n_sobol}, p={p})...")
 cli_alert_info("Total binary calls: {n_sobol * (2 * p + 2)}")
 

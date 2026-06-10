@@ -168,22 +168,22 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 6. `aggregate.rs` — MetricSeries → RunSummary
 
-- [ ] Define `RunSummary` struct with all fields listed in plan.md; `#[derive(serde::Serialize)]`
-- [ ] Implement `aggregate(series: MetricSeries, params: &Params, seed: u64) -> RunSummary`:
+- [x] Define `RunSummary` struct with all fields listed in plan.md; `#[derive(serde::Serialize)]`
+- [x] Implement `aggregate(series: MetricSeries, params: &Params, seed: u64) -> RunSummary`:
   - Terminal means: average over last `TAIL_FRAC` (default 0.2) of timesteps for each metric
   - `epsilon_auc`: trapezoidal integration of `mean_epsilon` over t
   - `epsilon_slope`: OLS slope (numerically stable one-pass formula)
   - `gini_peak` and `t_gini_peak`: scan `gini_k` series for maximum
   - `psi` and `tau_psi`: set to `None` (populated later by paired-run wrapper)
-- [ ] Implement `compute_tau_psi(lo: &MetricSeries, hi: &MetricSeries, zeta: f64) -> u32`:
+- [x] Implement `compute_tau_psi(lo: &MetricSeries, hi: &MetricSeries, zeta: f64) -> u32`:
   first timestep where `|mean_epsilon_hi[t] - mean_epsilon_lo[t]| < zeta`;
   return T_MAX if never reached
-- [ ] Implement paired-run wrapper in `experiment.rs`:
+- [x] Implement paired-run wrapper in `experiment.rs`:
   `run_paired(base: &Params, mu0_lo: f64, mu0_hi: f64, seed: u64, zeta: f64)`
   runs both simulations, calls `aggregate` on each, computes and attaches `psi` and `tau_psi`
-- [ ] Unit test: `aggregate` on a constant `mean_epsilon` series gives `epsilon_slope ≈ 0`
+- [x] Unit test: `aggregate` on a constant `mean_epsilon` series gives `epsilon_slope ≈ 0`
   and `epsilon_auc = mean * T`
-- [ ] Unit test: `compute_tau_psi` returns correct crossing timestep for a known synthetic series
+- [x] Unit test: `compute_tau_psi` returns correct crossing timestep for a known synthetic series
 
 ---
 

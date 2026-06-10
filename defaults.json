@@ -20,5 +20,9 @@
   "dw_excl":      0.1,
   "eta":          0.1,
   "delta_direct": 0.05,
-  "delta_exploit": 0.05
+  "delta_exploit": 0.05,
+
+  "_comment_sobol": "Additional parameters for sobol.R script",
+  "top_n": 6,
+  "n_sobol": 1000
 }

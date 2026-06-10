@@ -15,10 +15,12 @@ library(cli)
 
 set.seed(42)
 
+pars <- jsonlite::read_json ("defaults.json", pretty = TRUE)
+
 # ---------------------------------------------------------------------------
 # Select parameters: top N by mu* from Morris (or all 11 if no prior results)
 # ---------------------------------------------------------------------------
-TOP_N <- 6   # number of parameters to include in Sobol
+TOP_N <- pars$top_n   # number of parameters to include in Sobol
 
 # delta is fixed (suppresses Psi monotonically) — excluded from all analyses
 FIXED_EXCLUDE <- c("delta")
@@ -77,7 +79,7 @@ fixed <- list(
 # ---------------------------------------------------------------------------
 # Saltelli design: X1 and X2 sampled uniformly on actual parameter ranges
 # ---------------------------------------------------------------------------
-n_sobol <- 1000   # total evaluations = n * (2p + 2)
+n_sobol <- pars$n_sobol   # total evaluations = n * (2p + 2)
 cli_alert_info("Generating Saltelli design (n={n_sobol}, p={p})...")
 cli_alert_info("Total binary calls: {n_sobol * (2 * p + 2)}")
 

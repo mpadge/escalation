@@ -189,13 +189,13 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 ## 7. `experiment.rs` — parallel runner
 
-- [ ] Implement `run_experiment(pairs: &[(Params, Params)], seeds: &[u64], zeta: f64)`
+- [x] Implement `run_experiment(pairs: &[(Params, Params)], seeds: &[u64], zeta: f64)`
   using `rayon::par_iter` over the Cartesian product of pairs × seeds;
   returns `Vec<(RunSummary, RunSummary)>`
-- [ ] Implement `run_diagnostic(params: &Params, seeds: &[u64])` (unpaired, single μ₀)
+- [x] Implement `run_diagnostic(params: &Params, seeds: &[u64])` (unpaired, single μ₀)
   for Phase 1 and 2 validation runs
-- [ ] Verify Rayon thread count respects `RAYON_NUM_THREADS` env var (or `--threads` CLI flag)
-- [ ] Integration test: run 10 paired simulations on tiny params (N=20, T=100); verify CSV
+- [x] Verify Rayon thread count respects `RAYON_NUM_THREADS` env var (or `--threads` CLI flag)
+- [x] Integration test: run 10 paired simulations on tiny params (N=20, T=100); verify CSV
   output has 20 rows and all fields are finite
 
 ---

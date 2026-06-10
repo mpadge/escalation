@@ -28,6 +28,7 @@ pub struct Params {
     pub sigma_drift: f64,
     pub rho_contested: f64,
     pub eta_trauma: f64,
+    pub t_max: u32,
 }
 
 impl Default for Params {
@@ -61,6 +62,7 @@ impl Default for Params {
             sigma_drift: 0.025,
             rho_contested: 0.55,
             eta_trauma: 0.1,
+            t_max: 10_000,
         }
     }
 }

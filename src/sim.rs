@@ -79,7 +79,7 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
     let mut last_slow_recorded = false;
     let uniform_n = Uniform::new(0, n);
 
-    for t in 0..T_MAX {
+    for t in 0..params.t_max {
         let focal = uniform_n.sample(&mut rng);
         let poisson = Poisson::new(params.lambda).unwrap();
         let m = loop {

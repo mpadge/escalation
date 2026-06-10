@@ -48,8 +48,15 @@ indices will be important for these.
 
 ## Decision
 
-Proceed to Sobol with the top 6 parameters:
-`w_win`, `delta`, `alpha`, `lambda`, `dw_obs`, `gamma`
+**`delta` fixed, not varied in analyses.**
+The network forgetting rate is conceptually necessary (relationships decay without
+active reinforcement) but its effect on Ψ is monotone and uninteresting for
+phase-diagram purposes: higher δ uniformly suppresses Ψ. Fixed at
+`delta = 0.01` in `defaults.json` (≈10% cumulative weight loss over a full run
+at SLOW_INTERVAL = 1,000 steps). Monotonicity is validated by
+`analysis/delta_monotone.R`.
 
-`dw_bridge` and `beta` are candidates for a sensitivity check but excluded
-from the primary Sobol run to keep the Saltelli budget tractable.
+Proceed to Sobol with the top 5 remaining parameters:
+`w_win`, `alpha`, `lambda`, `dw_obs`, `gamma`
+
+`dw_bridge` and `beta` are borderline; include if budget allows.

@@ -1,11 +1,12 @@
 {
   "_comment": "Parameters fixed at central values for sensitivity analysis (not varied in Morris/Sobol/GP).",
-  "_comment_structural": "The five below are held constant across all sensitivity stages per Stage 11 of the build spec.",
+  "_comment_structural": "The six below are held constant across all sensitivity stages per Stage 11 of the build spec.",
   "w_min":        0.05,
   "w_max":        3.0,
   "sigma_drift":  0.025,
   "rho_contested": 0.55,
   "eta_trauma":   0.1,
+  "delta":        0.01,
 
   "_comment_analysis": "Additional parameters fixed in the analysis layer (not in the free-parameter set).",
   "n":            200,

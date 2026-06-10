@@ -28,17 +28,17 @@ param_names <- c(
   "w_loss",   # loss cost (ratio r_loss_win = w_loss/w_win)
   "dw_obs",   # observer edge increment (with dw_coop=0.15: r_obs_coop)
   "dw_bridge",# bridge edge increment (with dw_sub=0.15: r_bridge_sub)
-  "eta_obs",  # observational learning rate (with eta=0.1: kappa = eta_obs/eta)
-  "delta"     # global edge decay rate
+  "eta_obs"   # observational learning rate (with eta=0.1: kappa = eta_obs/eta)
+  # delta fixed at d$delta — suppresses Psi monotonically; held out of analyses
 )
 p <- length(param_names)
 
 binf <- c(gamma=2.0, lambda=1.0, alpha=0.1, theta=1.0, beta=0.0,
           w_win=0.1, b=0.0, w_loss=0.1, dw_obs=0.0, dw_bridge=0.0,
-          eta_obs=0.001, delta=0.001)
+          eta_obs=0.001)
 bsup <- c(gamma=4.0, lambda=5.0, alpha=2.0, theta=4.0, beta=3.0,
           w_win=2.0, b=2.0, w_loss=2.0, dw_obs=0.2, dw_bridge=0.2,
-          eta_obs=0.1, delta=0.05)
+          eta_obs=0.1)
 
 # Fixed parameters (not varied in this stage)
 # Structural constants from defaults.json; t_max reduced for screening speed.
@@ -52,6 +52,7 @@ fixed <- list(
   w_min = d$w_min, w_max = d$w_max,
   sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
   eta_trauma = d$eta_trauma,
+  delta = d$delta,
   t_max = 2000L
 )
 

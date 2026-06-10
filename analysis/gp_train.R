@@ -17,28 +17,33 @@ set.seed(42)
 # ---------------------------------------------------------------------------
 # Parameter space: use Sobol-ranked top parameters where available
 # ---------------------------------------------------------------------------
+# delta fixed at d$delta — suppresses Psi monotonically; held out of analyses
 all_param_names <- c(
   "gamma", "lambda", "alpha", "theta", "beta",
-  "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs", "delta"
+  "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs"
 )
 all_binf <- c(gamma=2.0, lambda=1.0, alpha=0.1, theta=1.0, beta=0.0,
               w_win=0.1, b=0.0, w_loss=0.1, dw_obs=0.0, dw_bridge=0.0,
-              eta_obs=0.001, delta=0.001)
+              eta_obs=0.001)
 all_bsup <- c(gamma=4.0, lambda=5.0, alpha=2.0, theta=4.0, beta=3.0,
               w_win=2.0, b=2.0, w_loss=2.0, dw_obs=0.2, dw_bridge=0.2,
-              eta_obs=0.1, delta=0.05)
+              eta_obs=0.1)
+
+FIXED_EXCLUDE <- c("delta")  # fixed structural params excluded from all analyses
 
 TOP_N <- 8  # parameters to include in GP (more than Sobol to preserve coverage)
 if (file.exists("sobol_results.csv")) {
   sobol_df <- read.csv("sobol_results.csv")
+  sobol_df <- sobol_df[!(sobol_df$param %in% FIXED_EXCLUDE), ]
   param_names <- as.character(sobol_df$param[seq_len(min(TOP_N, nrow(sobol_df)))])
-  cat("Using top", length(param_names), "parameters from Sobol:\n",
+  cat("Using top", length(param_names), "parameters from Sobol (delta excluded):\n",
       paste(param_names, collapse = ", "), "\n")
 } else if (file.exists("morris_results.csv")) {
   morris_df <- read.csv("morris_results.csv")
+  morris_df <- morris_df[!(morris_df$param %in% FIXED_EXCLUDE), ]
   param_names <- as.character(morris_df$param[seq_len(min(TOP_N, nrow(morris_df)))])
   cat("sobol_results.csv not found; using top", length(param_names),
-      "parameters from Morris\n")
+      "parameters from Morris (delta excluded)\n")
 } else {
   param_names <- all_param_names
   cat("No prior results; using all", length(param_names), "parameters\n")
@@ -59,10 +64,11 @@ fixed <- list(
   w_min = d$w_min, w_max = d$w_max,
   sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
   eta_trauma = d$eta_trauma,
+  delta = d$delta,
   t_max = 5000L,
   gamma = 3.0, lambda = 3.0, alpha = 1.0, theta = 2L, beta = 1.5,
   w_win = 1.0, b = 1.0, w_loss = 1.0, dw_obs = 0.1, dw_bridge = 0.1,
-  eta_obs = 0.05, delta = 0.025
+  eta_obs = 0.05
 )
 
 # ---------------------------------------------------------------------------

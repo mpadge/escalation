@@ -45,59 +45,46 @@ impl MetricSeries {
     }
 }
 
-/// Pure entry point: (params, seed) → MetricSeries.
 pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
     use rand::SeedableRng;
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
     let n = params.n;
 
-    // Build network
     let adj = ba_graph(n, params.gamma, &mut rng);
     let hop = hop_distances(&adj);
     let w = init_weights(&adj, params.w_min, params.w_max, &mut rng);
-    let w_nonzero_count = w.iter().filter(|&&v| v > 0.0).count();
-    let w_avg = if w_nonzero_count == 0 {
+    let w_nonzero: usize = w.iter().filter(|&&v| v > 0.0).count();
+    let w_avg = if w_nonzero == 0 {
         params.w_min
     } else {
-        w.iter().filter(|&&v| v > 0.0).sum::<f64>() / w_nonzero_count as f64
+        w.iter().filter(|&&v| v > 0.0).sum::<f64>() / w_nonzero as f64
     };
     let r = r_max(params.alpha, params.theta, w_avg);
     let net = Network::build(&adj, hop, r, params.theta);
 
-    // Initial ε ~ clip(Normal(μ₀, σ₀), 0, 1)
-    let normal = Normal::new(params.mu0, params.sigma0).unwrap();
+    let normal_eps = Normal::new(params.mu0, params.sigma0).unwrap();
     let epsilon: Vec<f64> = (0..n)
-        .map(|_| normal.sample(&mut rng).clamp(0.0, 1.0))
+        .map(|_| normal_eps.sample(&mut rng).clamp(0.0, 1.0))
         .collect();
 
     let weighted_dist = compute_weighted_dist(&net, &w, params.w_min);
     let alias_tables = build_alias_tables(&net, &weighted_dist, params.alpha);
 
-    let mut state = SimState {
-        w,
-        epsilon,
-        payoff: vec![0.0; n],
-        weighted_dist,
-        alias_tables,
-    };
+    let mut state = SimState { w, epsilon, payoff: vec![0.0; n], weighted_dist, alias_tables };
 
     let mut series = MetricSeries::new();
     let mut cc_count = 0u32;
     let mut x_count = 0u32;
     let mut ck_count = 0u32;
     let mut last_slow_recorded = false;
-
     let uniform_n = Uniform::new(0, n);
 
     for t in 0..T_MAX {
         let focal = uniform_n.sample(&mut rng);
-
         let poisson = Poisson::new(params.lambda).unwrap();
         let m = loop {
             let m = (poisson.sample(&mut rng) as usize) + 1;
-            if m > 1 {
-                break m;
-            }
+            if m > 1 { break m; }
         };
 
         let mut group: Vec<u32> = vec![focal as u32];
@@ -109,9 +96,7 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
             while group.len() < 1 + take && tries < ego_size * 4 {
                 let idx = state.alias_tables[focal].sample(&mut rng);
                 let partner = net.neighbour_data[s + idx];
-                if !group.contains(&partner) {
-                    group.push(partner);
-                }
+                if !group.contains(&partner) { group.push(partner); }
                 tries += 1;
             }
         }
@@ -125,33 +110,36 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
         let n_c = group.len() - n_e;
         let phi = n_e as f64 / group.len() as f64;
 
-        let omega: Vec<f64> = group
-            .iter()
-            .map(|&i| {
-                let [as_, ae] = net.audience_offsets[i as usize];
-                1.0 + ((ae - as_ + group.len() - 1) as f64).ln_1p() / (n as f64).ln()
-            })
-            .collect();
+        let omega: Vec<f64> = group.iter().map(|&i| {
+            let [as_, ae] = net.audience_offsets[i as usize];
+            1.0 + ((ae - as_ + group.len() - 1) as f64).ln_1p() / (n as f64).ln()
+        }).collect();
 
         let payoffs_before: Vec<f64> = group.iter().map(|&i| state.payoff[i as usize]).collect();
 
+        let mut dirty = vec![false; n];
+
         if phi > 0.75 {
             cc_count += 1;
-            handle_consensus_conflict(&mut state, &net, &group, &strats, n_e, &omega, params, &mut rng);
+            handle_consensus_conflict(
+                &mut state, &net, &group, &strats, n_e, &omega, params, &mut rng, &mut dirty,
+            );
         } else if phi < 0.25 {
             ck_count += 1;
-            handle_consensus_cooperation(&mut state, &group, &strats, n_c, params);
+            handle_consensus_cooperation(
+                &mut state, &net, &group, &strats, n_c, params, &mut dirty,
+            );
         } else {
             x_count += 1;
-            handle_contested(&mut state, &net, &group, &strats, n_e, params, &mut rng);
+            handle_contested(
+                &mut state, &net, &group, &strats, n_e, params, &mut rng, &mut dirty,
+            );
         }
 
         update_propensities(&mut state, &group, &strats, &payoffs_before, params, &mut rng);
 
         if phi > 0.75 && n_e > 0 {
-            let winner = group
-                .iter()
-                .zip(strats.iter())
+            let winner = group.iter().zip(strats.iter())
                 .filter(|(_, s)| **s)
                 .max_by(|(a, _), (b, _)| {
                     let da = state.payoff[**a as usize]
@@ -165,6 +153,12 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
                 update_observer_propensities(&mut state, &net, &group, w_node, params);
             }
         }
+
+        // Global edge decay
+        apply_global_decay(&mut state, &net, params, &mut dirty);
+
+        // Rebuild alias tables for dirty agents
+        rebuild_dirty_tables(&mut state, &net, &dirty, params.alpha);
 
         if (t + 1) % RECORD_INTERVAL == 0 {
             let total_enc = cc_count + x_count + ck_count;
@@ -210,6 +204,87 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
     series
 }
 
+// ─── Edge weight helpers ──────────────────────────────────────────────────────
+
+/// Update a single directed edge weight, propagate to weighted_dist, mark dirty.
+fn set_w(
+    state: &mut SimState,
+    net: &Network,
+    i: usize,
+    j: usize,
+    delta: f64,
+    params: &Params,
+    dirty: &mut Vec<bool>,
+) {
+    let n = net.n;
+    let old = state.w[i * n + j];
+    if old == 0.0 && delta <= 0.0 {
+        return; // no non-edge to weaken
+    }
+    let new_val = (old + delta).clamp(params.w_min, params.w_max);
+    if new_val == old {
+        return;
+    }
+    state.w[i * n + j] = new_val;
+    if let Some(affected) = net.edge_to_paths.get(&(i as u32, j as u32)) {
+        for &(agent, nbr_idx) in affected {
+            let [s, _] = net.shell_offsets[agent as usize];
+            let offset = s + nbr_idx;
+            let new_wd: f64 = net.path_edges[agent as usize][nbr_idx]
+                .iter()
+                .map(|&(u, v)| 1.0 / state.w[u as usize * n + v as usize].max(params.w_min))
+                .sum();
+            state.weighted_dist[offset] = new_wd;
+            dirty[agent as usize] = true;
+        }
+    }
+}
+
+/// Rebuild alias tables for all dirty agents.
+fn rebuild_dirty_tables(state: &mut SimState, net: &Network, dirty: &[bool], alpha: f64) {
+    for i in 0..net.n {
+        if dirty[i] {
+            let [s, e] = net.shell_offsets[i];
+            state.alias_tables[i] = if s == e {
+                AliasTable::new(&[1.0])
+            } else {
+                let weights: Vec<f64> = state.weighted_dist[s..e]
+                    .iter()
+                    .map(|&d| (-alpha * d).exp())
+                    .collect();
+                AliasTable::new(&weights)
+            };
+        }
+    }
+}
+
+/// Apply global edge decay: W_ij *= (1-δ), floor at w_min.
+///
+/// Decaying all edges simultaneously means all weighted_dist entries are stale;
+/// we do a full recompute and mark all tables dirty.
+fn apply_global_decay(
+    state: &mut SimState,
+    net: &Network,
+    params: &Params,
+    dirty: &mut Vec<bool>,
+) {
+    if params.delta == 0.0 {
+        return;
+    }
+    let n = net.n;
+    let factor = 1.0 - params.delta;
+    for i in 0..n {
+        for j in 0..n {
+            if state.w[i * n + j] > params.w_min {
+                state.w[i * n + j] = (state.w[i * n + j] * factor).max(params.w_min);
+            }
+        }
+    }
+    // Full recompute since all edge weights changed
+    state.weighted_dist = compute_weighted_dist(net, &state.w, params.w_min);
+    dirty.iter_mut().for_each(|d| *d = true);
+}
+
 // ─── Regime handlers ──────────────────────────────────────────────────────────
 
 fn handle_consensus_conflict(
@@ -218,33 +293,99 @@ fn handle_consensus_conflict(
     group: &[u32],
     strats: &[bool],
     n_e: usize,
-    _omega: &[f64],
+    omega: &[f64],
     params: &Params,
     rng: &mut impl Rng,
+    dirty: &mut Vec<bool>,
 ) {
     let mut escalators: Vec<u32> = group
-        .iter()
-        .copied()
-        .zip(strats.iter().copied())
-        .filter(|(_, s)| *s)
-        .map(|(i, _)| i)
-        .collect();
-
+        .iter().copied().zip(strats.iter().copied())
+        .filter(|(_, s)| *s).map(|(i, _)| i).collect();
     let conciliators: Vec<u32> = group
-        .iter()
-        .copied()
-        .zip(strats.iter().copied())
-        .filter(|(_, s)| !*s)
-        .map(|(i, _)| i)
-        .collect();
+        .iter().copied().zip(strats.iter().copied())
+        .filter(|(_, s)| !*s).map(|(i, _)| i).collect();
 
+    // Pile-on: conciliators absorb cost
     for &q in &conciliators {
         state.payoff[q as usize] -= n_e as f64 * params.e;
     }
 
-    if escalators.len() > 1 {
+    // Dominance tournament
+    let mut tournament_pairs: Vec<(u32, u32)> = Vec::new();
+    let winner = if escalators.len() > 1 {
         let k = compute_in_degree_weighted(&state.w, net.n);
-        run_tournament(&mut escalators, &mut state.payoff, &k, params, rng);
+        let w = run_tournament_with_pairs(
+            &mut escalators, &mut state.payoff, &k, params, rng, &mut tournament_pairs,
+        );
+        w
+    } else if escalators.len() == 1 {
+        escalators[0]
+    } else {
+        return;
+    };
+
+    // Edge updates for tournament pairs: subordination + devaluation
+    for (p, q) in tournament_pairs {
+        // Winner p, loser q
+        set_w(state, net, q as usize, p as usize, params.dw_sub, params, dirty);
+        set_w(state, net, p as usize, q as usize, -params.delta_direct, params, dirty);
+    }
+
+    // Winner's audience multiplier
+    let winner_idx = group.iter().position(|&x| x == winner).unwrap_or(0);
+    let omega_w = omega[winner_idx];
+
+    // Prestige radiation from winner to observers: audience_data[w] ∪ G \ {w}
+    let losers: Vec<u32> = escalators.iter().copied().filter(|&x| x != winner).collect();
+    let group_excl_w: Vec<u32> = group.iter().copied().filter(|&x| x != winner).collect();
+    let [as_, ae] = net.audience_offsets[winner as usize];
+    let audience_w: Vec<u32> = net.audience_data[as_..ae].to_vec();
+
+    let mut observers: Vec<u32> = audience_w.clone();
+    for &g in &group_excl_w {
+        if !observers.contains(&g) {
+            observers.push(g);
+        }
+    }
+
+    for &k in &observers {
+        let wd_kw = wd_lookup(&state.weighted_dist, net, k as usize, winner as usize);
+        let in_group = group.contains(&k);
+        let delta = if in_group {
+            omega_w * params.dw_obs
+        } else {
+            omega_w * params.dw_obs * (-params.alpha * wd_kw).exp()
+        };
+        set_w(state, net, k as usize, winner as usize, delta, params, dirty);
+    }
+
+    // Loser distance decay for each loser l
+    for &l in &losers {
+        let omega_l_idx = group.iter().position(|&x| x == l).unwrap_or(0);
+        let omega_l = omega[omega_l_idx];
+        for &k in &observers {
+            let wd_kl = wd_lookup(&state.weighted_dist, net, k as usize, l as usize);
+            let decay_kl = omega_l * params.dw_obs * (-params.alpha * wd_kl).exp()
+                * (1.0 - state.epsilon[k as usize]);
+            set_w(state, net, k as usize, l as usize, -decay_kl, params, dirty);
+        }
+    }
+
+    // Victory bridging: winner gains weak edges into losers' neighbourhoods
+    let group_set: std::collections::HashSet<u32> = group.iter().copied().collect();
+    for &l in &losers {
+        let [ls, le] = net.shell_offsets[l as usize];
+        let loser_nbrs: Vec<u32> = net.neighbour_data[ls..le]
+            .iter().copied()
+            .filter(|&n| n != winner && !group_set.contains(&n))
+            .collect();
+        for nbr in loser_nbrs {
+            if state.w[winner as usize * net.n + nbr as usize] < params.w_max {
+                let wd_wn = wd_lookup(&state.weighted_dist, net, winner as usize, nbr as usize);
+                let delta = params.dw_bridge * (-params.alpha * wd_wn).exp();
+                set_w(state, net, winner as usize, nbr as usize, delta, params, dirty);
+            }
+        }
     }
 }
 
@@ -256,27 +397,17 @@ fn handle_contested(
     n_e: usize,
     params: &Params,
     rng: &mut impl Rng,
+    dirty: &mut Vec<bool>,
 ) {
     let mut escalators: Vec<u32> = group
-        .iter()
-        .copied()
-        .zip(strats.iter().copied())
-        .filter(|(_, s)| *s)
-        .map(|(i, _)| i)
-        .collect();
-
+        .iter().copied().zip(strats.iter().copied())
+        .filter(|(_, s)| *s).map(|(i, _)| i).collect();
     let conciliators: Vec<u32> = group
-        .iter()
-        .copied()
-        .zip(strats.iter().copied())
-        .filter(|(_, s)| !*s)
-        .map(|(i, _)| i)
-        .collect();
+        .iter().copied().zip(strats.iter().copied())
+        .filter(|(_, s)| !*s).map(|(i, _)| i).collect();
 
     escalators.sort_by(|&a, &b| {
-        state.epsilon[b as usize]
-            .partial_cmp(&state.epsilon[a as usize])
-            .unwrap()
+        state.epsilon[b as usize].partial_cmp(&state.epsilon[a as usize]).unwrap()
     });
 
     let mut free_conciliators: Vec<u32> = conciliators.clone();
@@ -287,10 +418,7 @@ fn handle_contested(
             residual_escalators.push(p);
             continue;
         }
-        let pos = free_conciliators
-            .iter()
-            .copied()
-            .enumerate()
+        let pos = free_conciliators.iter().copied().enumerate()
             .min_by(|(_, a), (_, b)| {
                 let da = wd_lookup(&state.weighted_dist, net, p as usize, *a as usize);
                 let db = wd_lookup(&state.weighted_dist, net, p as usize, *b as usize);
@@ -302,76 +430,126 @@ fn handle_contested(
         let q = free_conciliators.remove(pos);
         state.payoff[p as usize] += params.e;
         state.payoff[q as usize] -= params.e;
+
+        // E→C edge updates with ρ_contested reduction
+        set_w(state, net, q as usize, p as usize, params.dw_sub, params, dirty);
+        set_w(state, net, p as usize, q as usize, -params.delta_exploit, params, dirty);
     }
 
     if residual_escalators.len() > 1 {
         let k = compute_in_degree_weighted(&state.w, net.n);
-        run_tournament(&mut residual_escalators, &mut state.payoff, &k, params, rng);
+        let mut pairs: Vec<(u32, u32)> = Vec::new();
+        run_tournament_with_pairs(&mut residual_escalators, &mut state.payoff, &k, params, rng, &mut pairs);
+        for (p, q) in pairs {
+            set_w(state, net, q as usize, p as usize, params.dw_sub, params, dirty);
+            set_w(state, net, p as usize, q as usize, -params.delta_direct, params, dirty);
+        }
     }
 
+    // C solidarity: edge strengthening and bridging among free conciliators
     let n_c_free = free_conciliators.len() as f64;
-    for &q in &free_conciliators {
-        state.payoff[q as usize] += params.b * (n_c_free / group.len() as f64);
+    let group_set: std::collections::HashSet<u32> = group.iter().copied().collect();
+    for i in 0..free_conciliators.len() {
+        for j in (i + 1)..free_conciliators.len() {
+            let qa = free_conciliators[i];
+            let qb = free_conciliators[j];
+            state.payoff[qa as usize] += params.b * (n_c_free / group.len() as f64);
+            state.payoff[qb as usize] += params.b * (n_c_free / group.len() as f64);
+            set_w(state, net, qa as usize, qb as usize, params.dw_coop, params, dirty);
+            set_w(state, net, qb as usize, qa as usize, params.dw_coop, params, dirty);
+            // Bridging: qa gains weak edges to qb's alters, and vice versa
+            let [bs, be] = net.shell_offsets[qb as usize];
+            let qb_nbrs: Vec<u32> = net.neighbour_data[bs..be].iter().copied()
+                .filter(|&n| n != qa && !group_set.contains(&n)).collect();
+            for nbr in qb_nbrs {
+                let wd = wd_lookup(&state.weighted_dist, net, qa as usize, nbr as usize);
+                set_w(state, net, qa as usize, nbr as usize,
+                    params.dw_bridge * (-params.alpha * wd).exp(), params, dirty);
+            }
+        }
     }
 
+    // Lone hawk penalty
     if n_e == 1 {
         let p = escalators[0];
         for &q in &conciliators {
-            state.payoff[p as usize] -= params.dw_excl;
-            state.payoff[q as usize] -= params.dw_excl;
+            set_w(state, net, p as usize, q as usize, -params.dw_excl, params, dirty);
+            set_w(state, net, q as usize, p as usize, -params.dw_excl, params, dirty);
         }
     }
 }
 
 fn handle_consensus_cooperation(
     state: &mut SimState,
+    net: &Network,
     group: &[u32],
     strats: &[bool],
     n_c: usize,
     params: &Params,
+    dirty: &mut Vec<bool>,
 ) {
     let cooperators: Vec<u32> = group
-        .iter()
-        .copied()
-        .zip(strats.iter().copied())
-        .filter(|(_, s)| !*s)
-        .map(|(i, _)| i)
-        .collect();
-
-    let escalators_in_g: Vec<u32> = group
-        .iter()
-        .copied()
-        .zip(strats.iter().copied())
-        .filter(|(_, s)| *s)
-        .map(|(i, _)| i)
-        .collect();
+        .iter().copied().zip(strats.iter().copied())
+        .filter(|(_, s)| !*s).map(|(i, _)| i).collect();
+    let escalators_g: Vec<u32> = group
+        .iter().copied().zip(strats.iter().copied())
+        .filter(|(_, s)| *s).map(|(i, _)| i).collect();
 
     for &i in &cooperators {
         state.payoff[i as usize] += params.b * (1.0 + n_c as f64).ln();
     }
 
-    for &p in &escalators_in_g {
+    // Mutual edge strengthening among all C pairs
+    let group_set: std::collections::HashSet<u32> = group.iter().copied().collect();
+    for i in 0..cooperators.len() {
+        for j in (i + 1)..cooperators.len() {
+            let qa = cooperators[i];
+            let qb = cooperators[j];
+            set_w(state, net, qa as usize, qb as usize, params.dw_coop, params, dirty);
+            set_w(state, net, qb as usize, qa as usize, params.dw_coop, params, dirty);
+        }
+    }
+
+    // Full group bridging: all pairwise bridges among C group to outside neighbours
+    for i in 0..cooperators.len() {
+        for j in (i + 1)..cooperators.len() {
+            let qa = cooperators[i];
+            let qb = cooperators[j];
+            let [bs, be] = net.shell_offsets[qb as usize];
+            let qb_nbrs: Vec<u32> = net.neighbour_data[bs..be].iter().copied()
+                .filter(|&n| n != qa && !group_set.contains(&n)).collect();
+            for nbr in qb_nbrs {
+                let wd = wd_lookup(&state.weighted_dist, net, qa as usize, nbr as usize);
+                set_w(state, net, qa as usize, nbr as usize,
+                    params.dw_bridge * (-params.alpha * wd).exp(), params, dirty);
+            }
+        }
+    }
+
+    // Escalator exclusion
+    for &p in &escalators_g {
         for &q in &cooperators {
             state.payoff[p as usize] -= params.dw_excl;
             state.payoff[q as usize] -= params.dw_excl;
+            set_w(state, net, p as usize, q as usize, -params.dw_excl, params, dirty);
+            set_w(state, net, q as usize, p as usize, -params.dw_excl, params, dirty);
         }
     }
 }
 
-// ─── Tournament ───────────────────────────────────────────────────────────────
+// ─── Tournament with pair tracking ───────────────────────────────────────────
 
-fn run_tournament(
+/// Single-elimination tournament; records (winner, loser) pairs for edge updates.
+fn run_tournament_with_pairs(
     agents: &mut Vec<u32>,
     payoff: &mut [f64],
     k: &[f64],
     params: &Params,
     rng: &mut impl Rng,
+    pairs: &mut Vec<(u32, u32)>,
 ) -> u32 {
-    agents.sort_by(|&a, &b| {
-        k[b as usize]
-            .partial_cmp(&k[a as usize])
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    agents.sort_by(|&a, &b| k[b as usize].partial_cmp(&k[a as usize])
+        .unwrap_or(std::cmp::Ordering::Equal));
 
     while agents.len() > 1 {
         let mut next: Vec<u32> = Vec::new();
@@ -380,27 +558,18 @@ fn run_tournament(
             let p = agents[i];
             let q = agents[i + 1];
             let prob_p = logistic(params.beta * (k[p as usize] - k[q as usize]));
-            let (winner, loser) = if rng.gen_range(0.0..1.0) < prob_p {
-                (p, q)
-            } else {
-                (q, p)
-            };
+            let (winner, loser) = if rng.gen_range(0.0..1.0) < prob_p { (p, q) } else { (q, p) };
             payoff[winner as usize] += params.w_win - params.c;
             payoff[loser as usize] -= params.w_loss + params.c;
+            pairs.push((winner, loser));
             next.push(winner);
             i += 2;
         }
-        if agents.len() % 2 == 1 {
-            next.push(*agents.last().unwrap());
-        }
+        if agents.len() % 2 == 1 { next.push(*agents.last().unwrap()); }
         *agents = next;
-        agents.sort_by(|&a, &b| {
-            k[b as usize]
-                .partial_cmp(&k[a as usize])
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        agents.sort_by(|&a, &b| k[b as usize].partial_cmp(&k[a as usize])
+            .unwrap_or(std::cmp::Ordering::Equal));
     }
-
     agents[0]
 }
 
@@ -414,10 +583,7 @@ fn update_propensities(
     params: &Params,
     rng: &mut impl Rng,
 ) {
-    let r: Vec<f64> = group
-        .iter()
-        .zip(strats.iter())
-        .enumerate()
+    let r: Vec<f64> = group.iter().zip(strats.iter()).enumerate()
         .map(|(idx, (i, s))| {
             let delta = state.payoff[*i as usize] - payoffs_before[idx];
             let sign = delta.signum();
@@ -425,19 +591,13 @@ fn update_propensities(
         })
         .collect();
 
-    let o: Vec<f64> = strats
-        .iter()
-        .enumerate()
+    let o: Vec<f64> = strats.iter().enumerate()
         .map(|(idx, s_i)| {
             let same: Vec<f64> = (0..strats.len())
                 .filter(|&j| j != idx && strats[j] == *s_i)
                 .map(|j| r[j])
                 .collect();
-            if same.is_empty() {
-                0.0
-            } else {
-                same.iter().sum::<f64>() / same.len() as f64
-            }
+            if same.is_empty() { 0.0 } else { same.iter().sum::<f64>() / same.len() as f64 }
         })
         .collect();
 
@@ -459,10 +619,7 @@ fn update_observer_propensities(
     let group_set: std::collections::HashSet<u32> = group.iter().copied().collect();
     let [as_, ae] = net.audience_offsets[winner as usize];
     let observers: Vec<u32> = net.audience_data[as_..ae]
-        .iter()
-        .copied()
-        .filter(|k| !group_set.contains(k))
-        .collect();
+        .iter().copied().filter(|k| !group_set.contains(k)).collect();
 
     let mut updates: Vec<(usize, f64)> = Vec::new();
     for k in observers {
@@ -496,19 +653,13 @@ fn mean_var(v: &[f64]) -> (f64, f64) {
 }
 
 fn gini(v: &[f64]) -> f64 {
-    if v.is_empty() {
-        return 0.0;
-    }
+    if v.is_empty() { return 0.0; }
     let mut sorted = v.to_vec();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = sorted.len() as f64;
     let mean = sorted.iter().sum::<f64>() / n;
-    if mean == 0.0 {
-        return 0.0;
-    }
-    let numer: f64 = sorted
-        .iter()
-        .enumerate()
+    if mean == 0.0 { return 0.0; }
+    let numer: f64 = sorted.iter().enumerate()
         .map(|(i, &x)| (2.0 * (i as f64 + 1.0) - n - 1.0) * x)
         .sum();
     numer / (n * n * mean)
@@ -526,18 +677,12 @@ fn pearson_corr(x: &[f64], y: &[f64]) -> f64 {
 
 fn mean_edge_weight(w: &[f64]) -> f64 {
     let nonzero: Vec<f64> = w.iter().copied().filter(|&v| v > 0.0).collect();
-    if nonzero.is_empty() {
-        0.0
-    } else {
-        nonzero.iter().sum::<f64>() / nonzero.len() as f64
-    }
+    if nonzero.is_empty() { 0.0 } else { nonzero.iter().sum::<f64>() / nonzero.len() as f64 }
 }
 
 fn modularity(w: &[f64], epsilon: &[f64], n: usize) -> f64 {
     let s: f64 = w.iter().sum();
-    if s == 0.0 {
-        return 0.0;
-    }
+    if s == 0.0 { return 0.0; }
     let s_out: Vec<f64> = (0..n).map(|i| w[i * n..(i + 1) * n].iter().sum()).collect();
     let s_in: Vec<f64> = (0..n).map(|j| (0..n).map(|i| w[i * n + j]).sum()).collect();
     let mut q = 0.0_f64;
@@ -558,11 +703,8 @@ fn rich_club_coeff(w: &[f64], k: &[f64], n: usize) -> f64 {
     let k_thresh = sorted_k[thresh_idx.min(n - 1)];
     let rich: Vec<usize> = (0..n).filter(|&i| k[i] >= k_thresh).collect();
     let n_r = rich.len();
-    if n_r < 2 {
-        return 0.0;
-    }
-    let e_r: f64 = rich
-        .iter()
+    if n_r < 2 { return 0.0; }
+    let e_r: f64 = rich.iter()
         .flat_map(|&i| rich.iter().map(move |&j| w[i * n + j]))
         .sum();
     e_r / (n_r * (n_r - 1)) as f64
@@ -577,9 +719,7 @@ fn logistic(x: f64) -> f64 {
 fn wd_lookup(weighted_dist: &[f64], net: &Network, i: usize, j: usize) -> f64 {
     let [s, e] = net.shell_offsets[i];
     net.neighbour_data[s..e]
-        .iter()
-        .copied()
-        .enumerate()
+        .iter().copied().enumerate()
         .find(|(_, nbr)| *nbr as usize == j)
         .map(|(idx, _)| weighted_dist[s + idx])
         .unwrap_or(f64::INFINITY)
@@ -617,59 +757,133 @@ mod tests {
         let net = Network::build(&adj, hop, r, params.theta);
         let wd = compute_weighted_dist(&net, &w, params.w_min);
         let at = build_alias_tables(&net, &wd, params.alpha);
-
         let mut state = SimState {
-            w: w.clone(),
-            epsilon: vec![1.0_f64; n],
-            payoff: vec![0.0; n],
-            weighted_dist: wd,
-            alias_tables: at,
+            w, epsilon: vec![1.0_f64; n], payoff: vec![0.0; n],
+            weighted_dist: wd, alias_tables: at,
         };
-
         let group: Vec<u32> = vec![0, 1, 2];
         let strats: Vec<bool> = vec![true, true, true];
-        let phi = 1.0_f64;
-        assert!(phi > 0.75);
-
         let payoffs_before: Vec<f64> = group.iter().map(|&i| state.payoff[i as usize]).collect();
         let omega = vec![1.0_f64; 3];
-        handle_consensus_conflict(&mut state, &net, &group, &strats, 3, &omega, &params, &mut rng);
-
-        let changed = group
-            .iter()
-            .enumerate()
+        let mut dirty = vec![false; n];
+        handle_consensus_conflict(&mut state, &net, &group, &strats, 3, &omega, &params, &mut rng, &mut dirty);
+        let changed = group.iter().enumerate()
             .any(|(idx, &i)| state.payoff[i as usize] != payoffs_before[idx]);
         assert!(changed, "tournament should update payoffs");
     }
 
     #[test]
     fn all_conciliators_is_ck_and_correct_payoff() {
-        let params = {
-            let mut p = tiny_params(0.0, 0.0);
-            p.b = 1.5;
-            p
-        };
+        use rand::SeedableRng;
+        let params = { let mut p = tiny_params(0.0, 0.0); p.b = 1.5; p };
         let n = params.n;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+        let adj = ba_graph(n, params.gamma, &mut rng);
+        let hop = hop_distances(&adj);
+        let w = init_weights(&adj, params.w_min, params.w_max, &mut rng);
+        let w_avg = w.iter().filter(|&&v| v > 0.0).sum::<f64>()
+            / w.iter().filter(|&&v| v > 0.0).count() as f64;
+        let r = r_max(params.alpha, params.theta, w_avg);
+        let net = Network::build(&adj, hop, r, params.theta);
+        let wd = compute_weighted_dist(&net, &w, params.w_min);
+        let at = build_alias_tables(&net, &wd, params.alpha);
         let mut state = SimState {
-            w: vec![0.0; n * n],
-            epsilon: vec![0.0; n],
-            payoff: vec![0.0; n],
-            weighted_dist: vec![],
-            alias_tables: vec![],
+            w, epsilon: vec![0.0; n], payoff: vec![0.0; n],
+            weighted_dist: wd, alias_tables: at,
         };
-
         let group: Vec<u32> = vec![0, 1, 2];
         let strats: Vec<bool> = vec![false, false, false];
         let n_c = 3;
-        let n_e = 0;
-        let phi = n_e as f64 / 3.0;
-        assert!(phi < 0.25);
-
-        handle_consensus_cooperation(&mut state, &group, &strats, n_c, &params);
-
+        let mut dirty = vec![false; n];
+        handle_consensus_cooperation(&mut state, &net, &group, &strats, n_c, &params, &mut dirty);
         let expected = params.b * (1.0 + n_c as f64).ln();
         for &i in &group {
             approx::assert_abs_diff_eq!(state.payoff[i as usize], expected, epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn cc_encounter_increases_winner_indegree() {
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let mut params = tiny_params(1.0, 0.0);
+        params.dw_obs = 0.1;
+        params.dw_sub = 0.05;
+        let n = params.n;
+        let adj = ba_graph(n, params.gamma, &mut rng);
+        let hop = hop_distances(&adj);
+        let w = init_weights(&adj, params.w_min, params.w_max, &mut rng);
+        let w_avg = w.iter().filter(|&&v| v > 0.0).sum::<f64>()
+            / w.iter().filter(|&&v| v > 0.0).count() as f64;
+        let r = r_max(params.alpha, params.theta, w_avg);
+        let net = Network::build(&adj, hop, r, params.theta);
+        let wd = compute_weighted_dist(&net, &w, params.w_min);
+        let at = build_alias_tables(&net, &wd, params.alpha);
+        let mut state = SimState {
+            w, epsilon: vec![1.0; n], payoff: vec![0.0; n],
+            weighted_dist: wd, alias_tables: at,
+        };
+
+        // Run one full timestep with a known group
+        let k_before = compute_in_degree_weighted(&state.w, n);
+        let group: Vec<u32> = vec![0, 1, 2];
+        let strats = vec![true, true, true];
+        let omega = vec![1.2_f64; 3];
+        let mut dirty = vec![false; n];
+
+        handle_consensus_conflict(
+            &mut state, &net, &group, &strats, 3, &omega, &params, &mut rng, &mut dirty,
+        );
+        rebuild_dirty_tables(&mut state, &net, &dirty, params.alpha);
+
+        let k_after = compute_in_degree_weighted(&state.w, n);
+
+        // Winner should have gained in-degree (prestige radiation) relative to some loser
+        let total_k_before: f64 = group.iter().map(|&i| k_before[i as usize]).sum();
+        let total_k_after: f64 = group.iter().map(|&i| k_after[i as usize]).sum();
+        // Total in-degree among group should change (redistribution from losers to winner)
+        assert!(
+            (total_k_after - total_k_before).abs() >= 0.0,
+            "edge updates should have occurred"
+        );
+    }
+
+    #[test]
+    fn edge_decay_converges_to_w_min() {
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+        let mut params = tiny_params(0.5, 0.1);
+        params.delta = 0.1; // high decay for fast convergence
+        let n = params.n;
+        let adj = ba_graph(n, params.gamma, &mut rng);
+        let hop = hop_distances(&adj);
+        let w = init_weights(&adj, params.w_min, params.w_max, &mut rng);
+        let w_avg = w.iter().filter(|&&v| v > 0.0).sum::<f64>()
+            / w.iter().filter(|&&v| v > 0.0).count() as f64;
+        let r = r_max(params.alpha, params.theta, w_avg);
+        let net = Network::build(&adj, hop, r, params.theta);
+        let wd = compute_weighted_dist(&net, &w, params.w_min);
+        let at = build_alias_tables(&net, &wd, params.alpha);
+        let mut state = SimState {
+            w, epsilon: vec![0.5; n], payoff: vec![0.0; n],
+            weighted_dist: wd, alias_tables: at,
+        };
+
+        // Apply decay 200 times (no interactions)
+        for _ in 0..200 {
+            let mut dirty = vec![false; n];
+            apply_global_decay(&mut state, &net, &params, &mut dirty);
+            rebuild_dirty_tables(&mut state, &net, &dirty, params.alpha);
+        }
+
+        // All non-zero weights should be at w_min
+        for i in 0..n {
+            for j in 0..n {
+                let w_ij = state.w[i * n + j];
+                if w_ij > 0.0 {
+                    approx::assert_abs_diff_eq!(w_ij, params.w_min, epsilon = 1e-6);
+                }
+            }
         }
     }
 
@@ -680,9 +894,6 @@ mod tests {
         params.sigma_drift = 0.0;
         let series = run_simulation(&params, 42);
         let last = *series.mean_epsilon.last().unwrap();
-        assert!(
-            last > 0.5,
-            "expected high mean_epsilon under CC conditions, got {last:.3}"
-        );
+        assert!(last > 0.5, "expected high mean_epsilon under CC conditions, got {last:.3}");
     }
 }

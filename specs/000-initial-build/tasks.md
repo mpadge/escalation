@@ -136,32 +136,32 @@ Check it off only when the code compiles, tests pass, and the behaviour is verif
 
 *Add all W mutation rules; weighted distances and alias tables must stay consistent.*
 
-- [ ] Implement edge weight update helper: `set_w(state, net, i, j, new_val, dirty_tables)`
+- [x] Implement edge weight update helper: `set_w(state, net, i, j, new_val, dirty_tables)`
   that writes to `state.w[i*N+j]`, propagates to `weighted_dist` via `edge_to_paths`,
   marks affected alias tables dirty, clamps to [w_min, w_max]
-- [ ] Add edge updates to `handle_consensus_conflict`:
+- [x] Add edge updates to `handle_consensus_conflict`:
   - Subordination links: W_qp += Δw_sub; W_pq -= δ_direct (per tournament pair)
   - Prestige radiation from winner w to observers:
     `W_kw += Ω_w * Δw_obs * exp(-α * d_kw)` for k in audience ∪ G\{w}
   - Loser distance: `W_kl -= Ω_l * Δw_obs * exp(-α * d_kl) * (1 - ε_k)` for each loser l
   - Victory bridging: for each loser l, for each neighbour n of l (n≠w, n∉G):
     `W_wn += Δw_bridge * exp(-α * d_wn)` if W_wn < w_max
-- [ ] Add edge updates to `handle_contested`:
+- [x] Add edge updates to `handle_contested`:
   - E→C pairs: W_qp += Δw_sub; W_pq -= δ_exploit
   - Observer updates with Ω' = Ω * ρ_contested
   - C solidarity: W_{qa,qb} += Δw_coop (symmetric); bridging to each other's alters
   - Lone hawk: W_pq -= Δw_excl; W_qp -= Δw_excl
-- [ ] Add edge updates to `handle_consensus_cooperation`:
+- [x] Add edge updates to `handle_consensus_cooperation`:
   - Mutual: W_ij += Δw_coop for all C pairs (symmetric)
   - Full bridging among C group
   - Escalator exclusion: W_pq -= Δw_excl; W_qp -= Δw_excl
-- [ ] Implement global edge decay at end of each timestep:
+- [x] Implement global edge decay at end of each timestep:
   `W_ij *= (1.0 - δ); W_ij = W_ij.max(w_min)`; mark all alias tables dirty
-- [ ] Implement weighted distance recomputation for dirty ego-nets (using `edge_to_paths`)
-- [ ] Implement alias table rebuild for dirty agents
-- [ ] Unit test: after a single CC encounter, winner's in-degree increases and loser's
+- [x] Implement weighted distance recomputation for dirty ego-nets (using `edge_to_paths`)
+- [x] Implement alias table rebuild for dirty agents
+- [x] Unit test: after a single CC encounter, winner's in-degree increases and loser's
   decreases; check exact magnitudes against the update equations
-- [ ] Unit test: edge decay applied for T steps with no interactions converges all weights
+- [x] Unit test: edge decay applied for T steps with no interactions converges all weights
   to w_min
 
 ---

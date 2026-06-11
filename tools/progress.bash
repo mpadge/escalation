@@ -47,20 +47,52 @@ if (( done_n == 0 )); then
     exit 0
 fi
 
-first_done=$(ls -tr "$log_dir"/*.done 2>/dev/null | head -1 || true)
-last_done=$(ls  -t  "$log_dir"/*.done 2>/dev/null | head -1 || true)
-start=$(stat -c %Y "$first_done")
-last=$(stat  -c %Y "$last_done")
 now=$(date +%s)
-elapsed=$(( now - start ))
+
+# Sort all .done timestamps, compute consecutive deltas, remove IQR outliers,
+# use trimmed mean delta for rate and ETA.
+# Outputs two values: <mean_delta_float> <elapsed_int>
+# elapsed = mean_delta * done_n (pure computation estimate, no idle gap).
+stats=$(
+    ls -tr "$log_dir"/*.done 2>/dev/null \
+        | xargs stat -c '%Y' 2>/dev/null \
+        | sort -n \
+        | awk -v done="$done_n" '
+    NR == 1 { prev = $1 }
+    NR > 1  { deltas[nd++] = $1 - prev; prev = $1 }
+    END {
+        if (nd == 0) { printf "1.000000 %d\n", done; exit }
+        # insertion sort
+        for (i = 1; i < nd; i++) {
+            v = deltas[i]; j = i - 1
+            while (j >= 0 && deltas[j] > v) { deltas[j+1] = deltas[j]; j-- }
+            deltas[j+1] = v
+        }
+        q1  = deltas[int(nd * 0.25)]
+        q3  = deltas[int(nd * 0.75)]
+        iqr = q3 - q1
+        lo  = q1 - 1.5 * iqr
+        hi  = q3 + 1.5 * iqr
+        sum = 0; cnt = 0
+        for (i = 0; i < nd; i++)
+            if (deltas[i] >= lo && deltas[i] <= hi) { sum += deltas[i]; cnt++ }
+        if (cnt == 0) { sum = deltas[int(nd / 2)]; cnt = 1 }   # fallback: median
+        md = sum / cnt
+        if (md < 1e-6) md = 1e-6
+        printf "%.6f %d\n", md, int(md * done + 0.5)
+    }
+    '
+)
+mean_delta=$(echo "$stats" | awk '{print $1}')
+elapsed=$(echo "$stats" | awk '{print $2}')
 
 echo "Elapsed    : $(fmt_duration $elapsed)"
 
 remaining_n=$(( expected - done_n ))
-if (( elapsed > 0 && done_n > 0 )); then
-    eta_secs=$(awk "BEGIN { printf \"%d\", ($remaining_n * $elapsed / $done_n) }")
-    rate=$(awk "BEGIN { printf \"%.1f\", ($done_n / $elapsed) }")
-    echo "Rate       : $rate pairs/s"
+if (( done_n >= 2 )); then
+    eta_secs=$(awk "BEGIN { printf \"%d\", int($remaining_n * $mean_delta + 0.5) }")
+    rate=$(awk "BEGIN { printf \"%.2f\", 1.0 / $mean_delta }")
+    echo "Rate       : $rate pairs/s  (IQR-trimmed mean Δt)"
     eta_clock=$(date -d "@$(( now + eta_secs ))" '+%H:%M:%S')
     echo "ETA        : $(fmt_duration $eta_secs)  (done at $eta_clock)"
 fi

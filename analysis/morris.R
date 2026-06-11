@@ -13,6 +13,8 @@ library (dplyr, warn.conflicts = FALSE)
 library (RcppTOML)
 library (cli)
 
+source ("analysis/utils.R")
+
 # ---------------------------------------------------------------------------
 # Functions
 # ---------------------------------------------------------------------------
@@ -156,10 +158,7 @@ bsup <- setNames (
 
 log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
-old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
-if (length (old_done) > 0) {
-    chk <- file.remove (old_done)
-}
+safe_clear_done_files (log_dir, expected_n = 15L * (length (param_names) + 1L))
 cli_alert_info ("Progress files will be written to {log_dir}")
 
 fixed <- list (

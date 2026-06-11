@@ -14,7 +14,13 @@ library (dplyr, warn.conflicts = FALSE)
 library (RcppTOML)
 library (cli)
 
+source ("analysis/utils.R")
+
 set.seed (42)
+
+# ---------------------------------------------------------------------------
+# Functions
+# ---------------------------------------------------------------------------
 
 results_dir <- "results"
 if (!dir.exists (results_dir)) {
@@ -81,10 +87,7 @@ bsup <- all_bsup [param_names]
 # Structural constants from defaults.toml; inactive free params at midpoints.
 log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
-old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
-if (length (old_done) > 0) {
-    chk <- file.remove (old_done)
-}
+safe_clear_done_files (log_dir, expected_n = pars$sobol$n_sobol * (2L * p + 2L))
 cli_alert_info ("Progress files will be written to {log_dir}")
 
 fixed <- list (

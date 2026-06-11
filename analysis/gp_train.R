@@ -14,6 +14,8 @@ library (RcppTOML)
 library (cli)
 library (processx)
 
+source ("analysis/utils.R")
+
 # ---------------------------------------------------------------------------
 # Functions
 # ---------------------------------------------------------------------------
@@ -72,13 +74,26 @@ make_lhs_design <- function (param_names, binf, bsup, fixed, n_lhs,
 }
 
 run_gp_binary <- function (binary, results_dir, log_dir, n_lhs, n_rep) {
-    out_file <- file.path (results_dir, "gp_train_raw.csv")
+    out_file      <- file.path (results_dir, "gp_train_raw.csv")
+    expected_rows <- n_lhs * n_rep * 2L  # lo + hi per (design point, seed)
+
+    resume <- FALSE
     if (file.exists (out_file)) {
-        cli_alert_warning (col_red (
-            "{.file {out_file}} already exists; skipping binary run."
+        n_existing <- length (readLines (out_file, warn = FALSE)) - 1L
+        if (n_existing >= expected_rows) {
+            cli_alert_info ("{.file {out_file}} already complete; skipping binary run.")
+            return (invisible (NULL))
+        }
+        cli_alert_warning (col_yellow (
+            "{.file {out_file}} has {.val {n_existing}}/{.val {expected_rows}} rows — resuming."
         ))
-        return (invisible (NULL))
+        resume <- TRUE
     }
+
+    if (!resume) {
+        safe_clear_done_files (log_dir, expected_n = n_lhs * n_rep)
+    }
+
     n_expected <- n_lhs * n_rep
     cli_alert_info (
         "Running binary ({.val {n_lhs}} design points x \\
@@ -95,7 +110,8 @@ run_gp_binary <- function (binary, results_dir, log_dir, n_lhs, n_rep) {
             "--design",     file.path (results_dir, "design_lhs.csv"),
             "--replicates", as.character (n_rep),
             "--output",     out_file,
-            "--log-dir",    log_dir
+            "--log-dir",    log_dir,
+            if (resume) "--resume" else character (0)
         ),
         echo = TRUE, error_on_status = FALSE
     )
@@ -278,10 +294,6 @@ bsup <- all_bsup [param_names]
 
 log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
-old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
-if (length (old_done) > 0) {
-    chk <- file.remove (old_done)
-}
 
 fixed <- list (
     n             = as.integer (pars_a$n),

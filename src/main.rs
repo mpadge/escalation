@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
+use rayon::prelude::*;
 use escalation::{
-    aggregate::RunSummary,
+    aggregate::{aggregate, compute_tau_psi, RunSummary},
     experiment::{run_experiment, set_num_threads},
     output::{write_series, write_summaries},
     params::Params,
@@ -113,9 +114,12 @@ struct GpTrainArgs {
     /// Convergence threshold ζ
     #[arg(long, default_value_t = 0.05)]
     zeta: f64,
-    /// Directory for per-pair progress files ({id:06}.done); created if absent
+    /// Directory for per-pair progress files ({pair:06}_{seed:04}.done); created if absent
     #[arg(long, default_value = "/tmp/escalation")]
     log_dir: PathBuf,
+    /// Resume an interrupted run: skip already-completed design rows and append to output
+    #[arg(long, default_value_t = false)]
+    resume: bool,
 }
 
 fn main() {
@@ -245,6 +249,14 @@ fn cmd_sensitivity(args: SensitivityArgs, _mode: &str) {
     println!("Wrote {} rows to {}", summaries.len(), args.output.display());
 }
 
+/// Count how many complete design rows are already in the output CSV.
+/// Each completed row produces `2 * replicates` data rows (lo+hi per seed).
+fn count_completed_design_rows(path: &std::path::Path, replicates: usize) -> usize {
+    let Ok(content) = std::fs::read_to_string(path) else { return 0; };
+    let data_rows = content.lines().count().saturating_sub(1); // subtract header
+    data_rows / (2 * replicates)
+}
+
 fn cmd_gp_train(args: GpTrainArgs) {
     if let Some(t) = args.threads {
         set_num_threads(t);
@@ -267,21 +279,76 @@ fn cmd_gp_train(args: GpTrainArgs) {
         }))
         .collect();
 
+    // Determine resume offset
+    let completed = if args.resume && args.output.exists() {
+        count_completed_design_rows(&args.output, args.replicates)
+    } else {
+        0
+    };
+    if completed > 0 {
+        println!("Resuming: {completed}/{} design rows already done", designs.len());
+    }
+
+    // Open output — append (no header) if resuming, create/truncate otherwise
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(!args.resume || completed == 0)
+        .truncate(!args.resume || completed == 0)
+        .append(args.resume && completed > 0)
+        .open(&args.output)
+        .unwrap_or_else(|e| {
+            eprintln!("Cannot open output {}: {e}", args.output.display());
+            std::process::exit(1);
+        });
+    let mut wtr = csv::WriterBuilder::new()
+        .has_headers(completed == 0)
+        .from_writer(file);
+
     let seeds: Vec<u64> = (0..args.replicates as u64).collect();
-    let pairs: Vec<(Params, Params)> = designs
-        .iter()
-        .map(|p| (p.with_mu0(0.4), p.with_mu0(0.6)))
-        .collect();
+    let total = designs.len();
+    let mut rows_written = 0usize;
 
-    let results = run_experiment(&pairs, &seeds, args.zeta, Some(&args.log_dir));
-    let summaries: Vec<RunSummary> = results
-        .iter()
-        .flat_map(|(lo, hi)| [lo.clone(), hi.clone()])
-        .collect();
+    for (pair_idx, design_row) in designs.iter().enumerate().skip(completed) {
+        let p_lo = design_row.with_mu0(0.4);
+        let p_hi = design_row.with_mu0(0.6);
+        let log_dir = &args.log_dir;
+        let zeta = args.zeta;
 
-    write_summaries(&args.output, &summaries).unwrap_or_else(|e| {
-        eprintln!("Failed to write output: {e}");
-        std::process::exit(1);
-    });
-    println!("Wrote {} rows to {}", summaries.len(), args.output.display());
+        // Run all seeds for this design point in parallel
+        let results: Vec<(RunSummary, RunSummary)> = seeds
+            .par_iter()
+            .map(|&seed| {
+                let series_lo = run_simulation(&p_lo, seed);
+                let series_hi = run_simulation(&p_hi, seed);
+                let tau = compute_tau_psi(&series_lo, &series_hi, zeta);
+                let mut lo = aggregate(series_lo, &p_lo, seed);
+                let mut hi = aggregate(series_hi, &p_hi, seed);
+                let psi = (hi.mean_epsilon_final - lo.mean_epsilon_final)
+                    / (p_hi.mu0 - p_lo.mu0);
+                lo.psi = Some(psi);
+                hi.psi = Some(psi);
+                lo.tau_psi = Some(tau);
+                hi.tau_psi = Some(tau);
+                let path = log_dir.join(format!("{pair_idx:06}_{seed:04}.done"));
+                let _ = std::fs::write(
+                    &path,
+                    format!("psi={psi:.6}\nseed={seed}\npair={pair_idx}\n"),
+                );
+                (lo, hi)
+            })
+            .collect();
+
+        for (lo, hi) in &results {
+            wtr.serialize(lo).unwrap_or_else(|e| eprintln!("Serialize error: {e}"));
+            wtr.serialize(hi).unwrap_or_else(|e| eprintln!("Serialize error: {e}"));
+            rows_written += 2;
+        }
+        wtr.flush().unwrap_or_else(|e| eprintln!("Flush error: {e}"));
+
+        if (pair_idx + 1) % 100 == 0 || pair_idx + 1 == total {
+            println!("  {}/{} design rows complete", pair_idx + 1, total);
+        }
+    }
+
+    println!("Wrote {rows_written} rows to {}", args.output.display());
 }

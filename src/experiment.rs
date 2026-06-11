@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 
@@ -49,22 +48,21 @@ pub fn run_paired(
 
 /// Run all paired simulations in parallel over the given seeds.
 ///
-/// If `log_dir` is `Some`, writes a `{id:06}.done` file there after each
-/// completed pair — one file per (pair, seed) combination. Callers can
-/// watch the file count to track progress without polling stdout.
+/// If `log_dir` is `Some`, writes a `{pair_idx:06}_{seed:04}.done` file there
+/// after each completed (pair, seed) — callers can watch the file count to
+/// track progress without polling stdout.
 pub fn run_experiment(
     pairs: &[(Params, Params)],
     seeds: &[u64],
     zeta: f64,
     log_dir: Option<&std::path::Path>,
 ) -> Vec<(RunSummary, RunSummary)> {
-    let counter = Arc::new(AtomicUsize::new(0));
     let log_dir: Option<Arc<std::path::PathBuf>> = log_dir.map(|p| Arc::new(p.to_owned()));
 
     pairs
         .par_iter()
-        .flat_map(|(p_lo, p_hi)| {
-            let counter = Arc::clone(&counter);
+        .enumerate()
+        .flat_map(|(pair_idx, (p_lo, p_hi))| {
             let log_dir = log_dir.clone();
             seeds.par_iter().map(move |&seed| {
                 let series_lo = run_simulation(p_lo, seed);
@@ -80,11 +78,10 @@ pub fn run_experiment(
                 hi.tau_psi = Some(tau);
 
                 if let Some(ref dir) = log_dir {
-                    let id = counter.fetch_add(1, Ordering::Relaxed);
-                    let path = dir.join(format!("{id:06}.done"));
+                    let path = dir.as_ref().join(format!("{pair_idx:06}_{seed:04}.done"));
                     let _ = std::fs::write(
                         &path,
-                        format!("psi={psi:.6}\nseed={seed}\nrow={id}\n"),
+                        format!("psi={psi:.6}\nseed={seed}\npair={pair_idx}\n"),
                     );
                 }
 

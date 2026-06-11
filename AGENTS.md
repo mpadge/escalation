@@ -34,3 +34,9 @@ grep -rl '<!-- PENDING' specs/
 For each file returned, read it and complete the generation task described inside it. Remove the `<!-- PENDING` comment block when done, then stage the result with `git add`.
 
 Once all pending tasks are complete (i.e. the above command returns nothing), delete the entire "Pending generation tasks" section from this file and `git add` it.
+
+## Commit messages
+
+Prefix every commit message with the current designlens stage in brackets,
+e.g. `[001-revise-param-ranges]: <message>`. The stage name comes from the
+highest-numbered directory under `specs/`.

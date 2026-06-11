@@ -12,6 +12,98 @@ parameters θ.
 
 ---
 
+## Design Evolution and Rationale
+
+### Starting point
+
+The model began with a minimal concept: a population on a scale-free network, each agent
+carrying a propensity for escalatory versus conciliatory behaviour drawn from a normal
+distribution, with interactions determined by Poisson-distributed group sizes and
+network-distance-weighted partner selection. The core question — how sensitive is
+long-run behaviour to the initial mean propensity μ₀? — was fixed early, and the
+elaboration of the model was driven by that question.
+
+### Why prestige radiation replaced zero-sum edge transfer
+
+The first version of E–E conflict used a direct edge-weight transfer: winner gains +Δw on
+the direct edge to loser, loser loses −Δw. This was rejected because it creates a
+*collapse* dynamic rather than a *centralisation* one. Under zero-sum transfer, each
+defeat progressively isolates the loser — they are cut off from the network rather than
+remaining in orbit around the winner as a subordinate. Real dominance hierarchies do not
+work this way. Defeated individuals typically remain socially connected to winners, just in
+a deferential role.
+
+The replacement is **prestige radiation via symbolic capital**: when agent i beats j, the
+direct edge from j to i strengthens (subordination: j attends to i), but the edge from i
+to j only weakens slightly (winner devalues, does not sever). Crucially, all agents k
+within audience radius θ of the winner also update their edges toward i, with deference
+decaying as exp(−α · d_ki). This produces a genuine preferential attachment process
+driven by witnessed dominance: each win pulls the surrounding social graph toward the
+winner, generating the weighted rich-club centralisation without requiring losers to vanish.
+A loser becomes a follower; an isolated peripheral agent becomes one only if they never
+engage at all.
+
+### E–C asymmetric audience effects
+
+The exploitation case (escalator beats conciliator) was similarly revised to capture
+divergent audience interpretations. High-ε observers read the escalator's dominance as
+legitimate and strengthen edges toward the exploiter; low-ε observers read the same
+event as threatening and strengthen edges among themselves — the solidarity effect.
+Conciliatory observers therefore respond to witnessed exploitation not by individually
+yielding but by collectively bonding, forming mesh-like coalitions that provide
+structural resistance to future exploitation. The *pile-on* effect (escalatory observers
+also target the newly submissive conciliator) and the solidarity effect are structurally
+opposed and their relative magnitude depends on current population composition of ε,
+making outcomes genuinely path-dependent.
+
+### Arena-seeking as an emergent incentive
+
+Because the audience multiplier Ω scales with the number of agents within θ, and
+high-degree nodes by definition sit in denser local neighbourhoods, conflicts at hubs
+generate disproportionately large status effects. This endogenously creates an incentive
+for aggressive agents to fight where they are observed — without any explicit
+arena-seeking parameter. The audience multiplier alone is sufficient to make peripheral
+conflicts low-value and central conflicts high-value, driving the rich-club dynamics from
+within the payoff structure rather than by design assumption.
+
+### Why multi-partite interactions required new regime logic
+
+Binary interaction logic (one E vs one C, or one E vs one E) breaks down for m ≥ 3
+because strategy profiles become combinatorial (2^m possibilities), coalition formation
+becomes possible, and the boundary between participant and observer blurs — every group
+member is simultaneously actor and witness. Rather than reducing multipartite groups to
+sums of dyads (which misses the collective dynamics), the model classifies each encounter
+by escalation density φ = n_E/m into three regimes:
+
+- **Consensus conflict (φ > 0.75)**: conciliators face pile-on from all escalators before
+  a sequential dominance tournament resolves the winner among escalators. The tournament
+  is sequential rather than round-robin to produce a single unambiguous winner whose
+  prestige radiation is then Ω-scaled by the full audience.
+- **Contested (0.25 ≤ φ ≤ 0.75)**: escalators first exploit available conciliators
+  (greedy by ε descending), residual escalators tournament among themselves with a
+  distraction discount ρ_contested, and unexploited conciliators form a partial solidarity
+  coalition sharing a reduced cooperation benefit b·(n_C/m). This is the most
+  strategically interesting regime: conciliators weigh coalition benefit against
+  exploitation risk.
+- **Consensus cooperation (φ < 0.25)**: full cooperative payoff shared among conciliators,
+  all-pairs bridging edges form, and any lone escalators face exclusion (edge weakening
+  from the cooperative majority). Being the lone hawk in a dove group is actively
+  punishing.
+
+### Selection probability design: static topology, dynamic weights
+
+An explicit design decision separates graph *topology* from graph *weights*. Topology
+(which edges exist, neighbour lists, shortest hop paths) is fixed at initialisation and
+never mutated. Only edge weights W evolve. This means:
+
+- Hop-count distances d_ij are computed once and cached.
+- Audience lists (agents within θ hops of i) are precomputed once per agent.
+- Selection probabilities use the *weighted* distance — sum of 1/W along the shortest
+  topological path — which evolves as W changes. This is a clean conceptual separation:
+  who you can reach is fixed by social structure, how strongly you are connected evolves.
+
+---
+
 ## State Space
 
 ### Agent state
@@ -179,6 +271,17 @@ where:
 where O_k = +sign(admiration signal) for escalatory observers, −sign(solidarity signal) for
 conciliatory observers, weighted by exp(−α · w_kw).
 
+**Trauma update** for exploited conciliators q (E–C encounters): exploitation experience
+pushes the conciliator toward self-protective escalation, dampened by their current
+propensity (dispositional resistance — strongly conciliatory agents resist the shift):
+
+> ε_q ← clip(ε_q + η_trauma · (1 − ε_q), 0, 1)
+
+The (1 − ε_q) factor ensures the update is largest for agents who are most conciliatory
+and diminishes as ε_q approaches 1. Solidarity reinforcement for conciliatory observers
+and vicarious escalation reinforcement for escalatory observers (both ±η_obs · O_k) are
+handled by the general observer update above.
+
 ---
 
 ## Network Decay
@@ -307,3 +410,86 @@ after a quick one-at-a-time screen; this leaves ~8 parameters for Sobol.
    and may shift strategy in either direction.
 5. **Contested regime as evolutionary engine**: mixed-φ encounters generate the most varied
    propensity updates, maintaining ε diversity and driving adaptation.
+
+---
+
+## Implementation Architecture
+
+### Language: Rust
+
+Rust was chosen over C++, C, and Zig for the following reasons:
+
+- **Embarrassingly parallel parameter sweeps**: the Sobol and Morris analyses require
+  tens of thousands of independent simulation runs. Rayon makes this trivial — a single
+  `.par_iter()` call saturates all CPU cores with no threading boilerplate. This was the
+  deciding factor.
+- **Memory safety**: graph mutation code and index arithmetic are where bugs live. Rust's
+  ownership model eliminates the class of memory errors that would otherwise appear in
+  edge-weight update loops.
+- **Performance**: comparable to C++ for this workload, which is memory-bound rather than
+  compute-bound (irregular graph access dominates).
+
+C++ was the main alternative and remains viable, especially if CUDA GPU batching is ever
+needed. C has no meaningful advantage over either. Zig was considered but rejected as
+premature given its immature ecosystem.
+
+GPU acceleration of individual simulation runs is not worthwhile: the branching regime
+classification (CC/X/CK), sequential tournament logic, and sparse graph structure produce
+severe warp divergence and are a poor fit for GPU parallelism. The natural GPU use, if
+needed, is batching many complete simulations as kernel threads — but profiling on CPU
+first is the correct order of operations.
+
+### Fixed topology and precomputed structure
+
+Since graph topology never changes (only edge weights W evolve), all structural quantities
+are computed once at initialisation:
+
+- **Hop-count distance matrix** `hop_distance[i,j]`: N×N flat array of integer hop counts,
+  computed via BFS from each node. Never touched again.
+- **Audience lists** `audience[i]`: for each agent i, the list of all j with
+  hop_distance[i,j] ≤ θ. Audience lookups during observer updates are then O(1) index
+  slices into a precomputed ragged array.
+- **Ego-net neighbourhood arrays**: for each agent i, a ragged array of all neighbours
+  within r_max hops, sorted by hop depth, with shell offsets for O(1) access to each
+  hop-shell. This covers both partner candidates and observer candidates.
+
+### Dynamic weighted distance
+
+Selection probabilities use weighted distance — the sum of 1/W along the shortest
+topological path — which changes as W changes. To keep this efficient:
+
+- Shortest topological paths (sequences of edge indices) are precomputed once per
+  (i, j) pair and stored as a ragged path table.
+- When edge (u, v) changes weight, only ego-nets whose shortest path to some neighbour
+  passes through (u, v) need their `weighted_dist` updated. The set of affected
+  (i, j) pairs is precomputed by inverting the path table at initialisation.
+- After `weighted_dist` is updated, the alias table for partner selection probabilities
+  is rebuilt for affected agents in O(ego-net size).
+
+### Memory layout and sizing
+
+All ego-net data is stored in a flat allocation — a true ragged array with an offset
+index — giving cache-local access to each agent's neighbourhood:
+
+```
+neighbour_data[offsets[i] .. offsets[i+1]]   // topology, fixed
+weighted_dist_data[offsets[i] .. offsets[i+1]] // evolving
+selection_prob_data[offsets[i] .. offsets[i+1]] // evolving
+```
+
+For N=500, mean degree k̄≈6, r_max=4: average ego-net ≈ 145 neighbours. Total
+topology data ≈ 290 KB (fits in L2 cache); total weight data ≈ 580 KB (fits in L3 cache).
+The full working set for a single simulation run fits in CPU cache, which is the primary
+performance win.
+
+### r_max selection
+
+r_max is set once per simulation run based on α and θ:
+
+```
+r_select = ceil(ln(0.01) / (-α · W_avg))   // hop beyond which selection prob < 1%
+r_max = max(r_select, θ, 2)
+```
+
+For α=1.0, r_select ≈ 5; for α=2.0, r_select ≈ 3. Four hops covers most of the
+intended parameter space.

@@ -113,7 +113,7 @@ design_full$n <- as.integer (design_full$n)
 design_full$t_max <- as.integer (design_full$t_max)
 
 write.csv (design_full, "design_lhs.csv", row.names = FALSE)
-cli_alert_info ("Wrote design_lhs.csv")
+cli_alert_info ("Wrote {.file design_lhs.csv}")
 
 # ---------------------------------------------------------------------------
 # Run Rust gp-train subcommand (5 replicates per design point)
@@ -125,26 +125,34 @@ if (!file.exists (binary)) {
 }
 
 n_expected <- N_LHS * n_rep
-cli_alert_info (
-    "Running binary ({.val {N_LHS}} design points x \\
-    {.val {n_rep}} replicates = {.val {n_expected}} pairs)..."
-)
-cli_alert_info (
-    "Expected {.val {n_expected}} progress files \\
-    — use {.code make progress} to see."
-)
-result <- processx::run (
-    binary,
-    c (
-        "gp-train",
-        "--design", "design_lhs.csv",
-        "--replicates", as.character (n_rep),
-        "--output", "gp_train_raw.csv",
-        "--log-dir", log_dir
-    ),
-    echo = TRUE, error_on_status = FALSE
-)
-if (result$status != 0) stop ("Binary failed: ", result$stderr)
+out_file <- "gp_train_raw.csv"
+if (!file.exists (out_file)) {
+    cli_alert_info (
+        "Running binary ({.val {N_LHS}} design points x \\
+        {.val {n_rep}} replicates = {.val {n_expected}} pairs)..."
+    )
+    cli_alert_info (
+        "Expected {.val {n_expected}} progress files \\
+        — use {.code make progress} to see."
+    )
+    result <- processx::run (
+        binary,
+        c (
+            "gp-train",
+            "--design", "design_lhs.csv",
+            "--replicates", as.character (n_rep),
+            "--output", "gp_train_raw.csv",
+            "--log-dir", log_dir
+        ),
+        echo = TRUE, error_on_status = FALSE
+    )
+    if (result$status != 0) stop ("Binary failed: ", result$stderr)
+} else {
+    cli_alert_warning (col_red (
+        "Binary output file alread exists at {.file {out_file}}; \\
+        will not be re-generated here."
+    ))
+}
 
 # ---------------------------------------------------------------------------
 # Aggregate R=5 replicates per design point
@@ -157,29 +165,38 @@ raw <- read.csv ("gp_train_raw.csv")
 # design pt
 # Layout: [pair1_seed0_lo, pair1_seed0_hi, pair1_seed1_lo, ...,
 #          pair2_seed0_lo, ...]
-raw <- raw |>
-    mutate (
-        pair_idx = ceiling (row_number () / (2 * n_rep)),
-        is_lo    = (row_number () %% 2 == 1)
-    )
+out_file <- "gp_data.csv"
+if (!file.exists (out_file)) {
+    raw <- raw |>
+        mutate (
+            pair_idx = ceiling (row_number () / (2 * n_rep)),
+            is_lo    = (row_number () %% 2 == 1)
+        )
 
-gp_data <- raw |>
-    filter (is_lo) |>
-    group_by (pair_idx) |>
-    summarise (
-        psi_mean = mean (psi, na.rm = TRUE),
-        psi_sd = sd (psi, na.rm = TRUE),
-        tau_psi_mean = mean (tau_psi, na.rm = TRUE),
-        .groups = "drop"
-    )
-gp_data$psi_sd [is.na (gp_data$psi_sd)] <- 0 # sd is NA when only 1 valid value
+    gp_data <- raw |>
+        filter (is_lo) |>
+        group_by (pair_idx) |>
+        summarise (
+            psi_mean = mean (psi, na.rm = TRUE),
+            psi_sd = sd (psi, na.rm = TRUE),
+            tau_psi_mean = mean (tau_psi, na.rm = TRUE),
+            .groups = "drop"
+        )
+    gp_data$psi_sd [is.na (gp_data$psi_sd)] <- 0 # sd is NA when only 1 valid value
 
-# Attach design parameters
-design_ids <- seq_len (N_LHS)
-stopifnot (nrow (gp_data) == N_LHS)
-gp_data <- bind_cols (design_scaled [design_ids, ], gp_data)
-write.csv (gp_data, "gp_data.csv", row.names = FALSE)
-cli_alert_info ("Wrote gp_data.csv")
+    # Attach design parameters
+    design_ids <- seq_len (N_LHS)
+    stopifnot (nrow (gp_data) == N_LHS)
+    gp_data <- bind_cols (design_scaled [design_ids, ], gp_data)
+    write.csv (gp_data, out_file, row.names = FALSE)
+    cli_alert_info ("Wrote {.file {out_file}}")
+} else {
+    cli_alert_warning (col_red (
+        "Binary output file alread exists at {.file {out_file}}; \\
+        will not be re-generated here."
+    ))
+    gp_data <- read.csv (out_file)
+}
 
 # ---------------------------------------------------------------------------
 # 80/20 train/hold-out split stratified by psi_mean quintile
@@ -197,7 +214,7 @@ train_idx <- unlist (lapply (
     function (idx) sample (idx, size = floor (0.8 * length (idx)))
 ))
 test_idx <- setdiff (seq_len (N_LHS), train_idx)
-cli_alert_info ("Train: {length(train_idx)}  Test: {length(test_idx)}")
+cli_alert_info ("Train: {.val {length(train_idx)}}  Test: {.val {length(test_idx)}}")
 
 X_train <- gp_data [train_idx, param_names, drop = FALSE] # nolint
 X_test <- gp_data [test_idx, param_names, drop = FALSE] # nolint
@@ -208,7 +225,7 @@ tau_train <- gp_data$tau_psi_mean [train_idx]
 # ---------------------------------------------------------------------------
 # Fit GPs
 # ---------------------------------------------------------------------------
-cli_alert_info ("Fitting GP on Psi (n_train={nrow(X_train)}, p={p})...")
+cli_alert_info ("Fitting GP on Psi (n_train={.val {nrow(X_train)}}, p={.val {p}})...")
 cli_alert_info ("DiceKriging Cholesky is O(n^3) — may take several minutes")
 
 noise_var_train <- gp_data$psi_sd [train_idx]^2

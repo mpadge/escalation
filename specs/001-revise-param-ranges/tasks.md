@@ -70,14 +70,20 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   this script yourself. Verify that the script completes without error, that
   `results/morris_results.csv` exists, and that the top-ranked parameters match
   expectations (observational learning parameters and alpha should still dominate; beta
-  should rank lower given its narrowed range).
+  should rank lower given its narrowed range). Once results are confirmed, write a
+  `specs/001-revise-param-ranges/results/morris.md` file documenting the full ranked
+  table, key findings, ranking shifts versus Stage 0, and the decision on which
+  parameters to carry forward to Sobol.
 
 ## T001-9: Run Sobol decomposition and report output
 - [x] T001-9: Instruct the user to run `make sobol` (i.e., `Rscript analysis/sobol.R`)
   and report back the console output and the contents of `results/sobol_results.csv`. Do
   not run this script yourself. Check whether the total-effect ranking is consistent with
   Stage 0 (alpha leading, dw_obs and eta_obs prominent). Note any substantial changes in
-  ranking or magnitude caused by the revised ranges.
+  ranking or magnitude caused by the revised ranges. Once results are confirmed, write a
+  `specs/001-revise-param-ranges/results/sobol.md` file documenting the full S₁/S_T
+  table, comparison against Stage 0, key findings on interaction structure, and decisions
+  for GP emulation (which parameters to carry forward and phase diagram priority).
 
 ## T001-10: Run GP training and report hyperparameters
 - [ ] T001-10: Instruct the user to run `make gp` (i.e., `Rscript analysis/gp_train.R`
@@ -86,7 +92,9 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   Verify that the nugget is non-zero (confirming that `nugget.estim = TRUE` is working),
   that no ARD length scale is shorter than ~0.1 (which would indicate the GP is still at
   risk of collapsing to its prior mean in phase diagrams), and that validation RMSE is
-  comparable to or better than Stage 0 (0.237).
+  comparable to or better than Stage 0 (0.237). Once results are confirmed, write a
+  `specs/001-revise-param-ranges/results/gp.md` file documenting the ARD length scales,
+  nugget estimates, RMSE, coverage, and any notable differences versus Stage 0.
 
 ## T001-11: Run GP phase diagrams and report results
 - [ ] T001-11: If `make gp` was not run as a unit in T001-10, instruct the user to run
@@ -94,7 +102,9 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   the phase CSV files in `results/gp_phase/`. Do not run this script yourself. Verify
   that phase CSV files no longer show constant `psi=0.078` (the prior-mean collapse seen
   in Stage 0). If any phase diagram is still constant, investigate whether the affected
-  parameter pair has short ARD length scales and document the finding.
+  parameter pair has short ARD length scales and document the finding. Append phase
+  diagram findings (collapse resolved or not, any remaining constant pairs) to the
+  `specs/001-revise-param-ranges/results/gp.md` written in T001-10.
 
 ## T001-12: Run plots and report final outputs
 - [ ] T001-12: Instruct the user to run `make plots` (i.e., `Rscript analysis/plot.R`)

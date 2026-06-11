@@ -104,7 +104,7 @@ write.csv (
 )
 cli_alert_info (
     "Wrote design_morris.csv ({.val {nrow(design_full)}} rows x \\
-    {.val {ncol(design_full)} cols)"
+    {.val {ncol(design_full)}} cols)"
 )
 
 # ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ result <- processx::run (
     error_on_status = FALSE
 )
 if (result$status != 0) {
-    cli_aobrt (
+    cli_abort (
         "Binary exited with status {.val {result$status}},
         stderr: {result$stderr}"
     )

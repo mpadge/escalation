@@ -19,7 +19,9 @@ library (cli)
 set.seed (42)
 
 binary <- "./target/release/escalation"
-if (!file.exists (binary)) stop ("Binary not found — run 'cargo build --release'")
+if (!file.exists (binary)) {
+    cli_abort ("Binary not found — run 'cargo build --release'")
+}
 
 d <- jsonlite::fromJSON ("defaults.json")
 
@@ -31,11 +33,21 @@ delta_grid <- c (0.001, 0.005, 0.01, 0.02, 0.04)
 # Five diverse parameter combinations: defaults, and four corners of the
 # most sensitive dimensions (w_win, alpha, lambda, dw_obs from Morris)
 combos <- list (
-    defaults  = list (gamma = 3.0, lambda = 3.0, alpha = 1.0, w_win = 1.0, dw_obs = 0.1),
-    high_win  = list (gamma = 3.0, lambda = 3.0, alpha = 1.0, w_win = 1.8, dw_obs = 0.1),
-    low_win   = list (gamma = 3.0, lambda = 3.0, alpha = 1.0, w_win = 0.3, dw_obs = 0.1),
-    high_obs  = list (gamma = 3.0, lambda = 2.0, alpha = 1.5, w_win = 1.0, dw_obs = 0.18),
-    low_alpha = list (gamma = 3.5, lambda = 4.0, alpha = 0.3, w_win = 1.0, dw_obs = 0.05)
+    defaults  = list (
+        gamma = 3.0, lambda = 3.0, alpha = 1.0, w_win = 1.0, dw_obs = 0.1
+    ),
+    high_win  = list (
+        gamma = 3.0, lambda = 3.0, alpha = 1.0, w_win = 1.8, dw_obs = 0.1
+    ),
+    low_win   = list (
+        gamma = 3.0, lambda = 3.0, alpha = 1.0, w_win = 0.3, dw_obs = 0.1
+    ),
+    high_obs  = list (
+        gamma = 3.0, lambda = 2.0, alpha = 1.5, w_win = 1.0, dw_obs = 0.18
+    ),
+    low_alpha = list (
+        gamma = 3.5, lambda = 4.0, alpha = 0.3, w_win = 1.0, dw_obs = 0.05
+    )
 )
 
 # Fixed fields shared by all runs
@@ -80,7 +92,10 @@ for (combo_name in names (combos)) {
             error_on_status = FALSE
         )
         if (res$status != 0) {
-            cli_alert_warning ("Binary failed for combo={combo_name} delta={delta_grid[k]}")
+            cli_alert_warning (
+                "Binary failed for combo={.field {combo_name}} \\
+                delta={.val {delta_grid[k]}}"
+            )
             psi_series [k] <- NA
             next
         }
@@ -100,7 +115,7 @@ for (combo_name in names (combos)) {
     pairs_str <- paste (sprintf ("%.3f→Ψ=%.3f", delta_grid, psi_series),
         collapse = "  "
     )
-    cli_alert_info ("{combo_name}: {pairs_str}")
+    cli_alert_info ("{.val {combo_name}}: {.field {pairs_str}}")
 }
 
 # ---------------------------------------------------------------------------
@@ -122,7 +137,10 @@ for (combo_name in names (combos)) {
     if (violations == 0) {
         cli_alert_info ("{combo_name}: PASS")
     } else {
-        cli_alert_warning ("{combo_name}: FAIL ({violations}/{length(diffs)} violations, tol={round(tol, 3)})")
+        cli_alert_warning (
+            "{.field {combo_name}}: FAIL ({.val {violations}}/\\
+            {.val {length(diffs)}} violations, tol={.val {round(tol, 3)}})"
+        )
         all_pass <- FALSE
     }
 }
@@ -133,5 +151,8 @@ cli_alert_info ("Wrote delta_monotone_results.csv")
 if (!all_pass) {
     stop ("Monotonicity check FAILED — review delta_monotone_results.csv")
 } else {
-    cli_alert_info ("All checks passed. delta fixed at {d$delta} is consistent with the suppression finding.")
+    cli_alert_info (
+        "All checks passed. delta fixed at {.val {d$delta}} is \\
+        consistent with the suppression finding."
+    )
 }

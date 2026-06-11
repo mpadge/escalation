@@ -9,7 +9,7 @@
 # Run from project root: Rscript analysis/plot.R
 
 library (ggplot2)
-library (dplyr)
+library (dplyr, warn.conflicts = FALSE)
 library (tidyr)
 library (cli)
 
@@ -24,12 +24,17 @@ phase_files <- list.files (".", pattern = "^phase_.*\\.csv$")
 phase_files <- phase_files [!grepl ("_tau\\.csv$", phase_files)]
 
 if (length (phase_files) == 0) {
-    cli_alert_warning ("No phase CSV files found — run gp_phase.R first")
+    cli_alert_warning (
+        "No phase CSV files found — run {.file gp_phase.R} first"
+    )
 } else {
     for (f in phase_files) {
         tag <- sub ("^phase_", "", sub ("\\.csv$", "", f))
         df <- read.csv (f)
-        xy <- setdiff (names (df), c ("psi_mean", "psi_sd", "tau_mean", "tau_sd"))
+        xy <- setdiff (
+            names (df),
+            c ("psi_mean", "psi_sd", "tau_mean", "tau_sd")
+        )
         if (length (xy) < 2) next
         xvar <- xy [1]
         yvar <- xy [2]
@@ -40,9 +45,13 @@ if (length (phase_files) == 0) {
                 colour = "white", alpha = 0.6,
                 bins = 5, linewidth = 0.35
             ) +
-            scale_fill_viridis_c (option = "plasma", name = expression (Psi ~ "mean")) +
+            scale_fill_viridis_c (
+                option = "plasma", name = expression (Psi ~ "mean")
+            ) +
             labs (
-                title    = bquote ("Phase diagram: " ~ Psi ~ "(" * . (xvar) * ", " * . (yvar) * ")"),
+                title    = bquote (
+                    "Phase diagram: " ~ Psi ~ "(" * . (xvar) * ", " * . (yvar) * ")"
+                ),
                 subtitle = "White contours = emulator uncertainty (Psi sd)",
                 x        = xvar,
                 y        = yvar
@@ -60,8 +69,8 @@ if (length (phase_files) == 0) {
 if (!file.exists ("gp_hyperparams.csv")) {
     cli_alert_warning ("gp_hyperparams.csv not found — skipping ARD plot")
 } else {
-    hp <- read.csv ("gp_hyperparams.csv") %>%
-        filter (!is.na (sensitivity)) %>%
+    hp <- read.csv ("gp_hyperparams.csv") |>
+        filter (!is.na (sensitivity)) |>
         arrange (ell)
 
     p_ard <- ggplot (hp, aes (x = reorder (param, ell), y = ell)) +
@@ -84,7 +93,7 @@ if (!file.exists ("gp_hyperparams.csv")) {
 sources <- list ()
 
 if (file.exists ("morris_results.csv")) {
-    m <- read.csv ("morris_results.csv") %>%
+    m <- read.csv ("morris_results.csv") |>
         transmute (param,
             value = mu_star / max (mu_star, na.rm = TRUE),
             method = "Morris mu*"
@@ -93,27 +102,27 @@ if (file.exists ("morris_results.csv")) {
 }
 
 if (file.exists ("sobol_results.csv")) {
-    s <- read.csv ("sobol_results.csv") %>%
+    s <- read.csv ("sobol_results.csv") |>
         transmute (param, value = ST, method = "Sobol ST")
     sources [["sobol"]] <- s
 }
 
 if (file.exists ("sobol_gp.csv")) {
-    g <- read.csv ("sobol_gp.csv") %>%
+    g <- read.csv ("sobol_gp.csv") |>
         transmute (param, value = ST, method = "GP-Sobol ST")
     sources [["gp"]] <- g
 }
 
 if (length (sources) >= 2) {
     combined <- bind_rows (sources)
-    top_params <- combined %>%
-        group_by (param) %>%
-        summarise (max_val = max (value, na.rm = TRUE)) %>%
-        arrange (desc (max_val)) %>%
-        slice_head (n = 10) %>%
+    top_params <- combined |>
+        group_by (param) |>
+        summarise (max_val = max (value, na.rm = TRUE)) |>
+        arrange (desc (max_val)) |>
+        slice_head (n = 10) |>
         pull (param)
 
-    combined <- combined %>% filter (param %in% top_params)
+    combined <- combined |> filter (param %in% top_params)
 
     p_sobol <- ggplot (
         combined,
@@ -127,19 +136,22 @@ if (length (sources) >= 2) {
         scale_fill_brewer (palette = "Set1", name = NULL) +
         labs (
             title    = "Sensitivity index comparison",
-            subtitle = "Morris mu* normalised to [0,1]; Sobol and GP-Sobol show S_T",
+            subtitle =
+                "Morris mu* normalised to [0,1]; Sobol and GP-Sobol show S_T",
             x        = NULL,
             y        = "Index value"
         ) +
         theme (legend.position = "bottom")
 
-    ggsave ("plots/sobol_comparison.png", p_sobol, width = 7, height = 5, dpi = 300)
-    cli_alert_info ("Saved plots/sobol_comparison.png")
+    ggsave (
+        "plots/sobol_comparison.png", p_sobol, width = 7, height = 5, dpi = 300
+    )
+    cli_alert_info ("Saved {.file plots/sobol_comparison.png}")
 } else {
     cli_alert_warning (
-        "Need at least 2 of {{morris_results.csv, sobol_results.csv, sobol_gp.csv}} \\
-     for comparison plot"
+        "Need at least 2 of {{{.file morris_results.csv}, {.file sobol_results.csv}, \\
+        {.file sobol_gp.csv}} for comparison plot"
     )
 }
 
-cli_alert_info ("Done.")
+cli_alert_success (col_yellow ("Done."))

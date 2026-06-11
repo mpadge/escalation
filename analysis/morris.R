@@ -9,7 +9,7 @@
 
 library (sensitivity)
 library (processx)
-library (dplyr)
+library (dplyr, warn.conflicts = FALSE)
 library (jsonlite)
 library (cli)
 
@@ -30,7 +30,8 @@ param_names <- c (
     "dw_obs", # observer edge increment (with dw_coop=0.15: r_obs_coop)
     "dw_bridge", # bridge edge increment (with dw_sub=0.15: r_bridge_sub)
     "eta_obs" # observational learning rate (with eta=0.1: kappa = eta_obs/eta)
-    # delta fixed at d$delta — suppresses Psi monotonically; held out of analyses
+    # delta fixed at d$delta — suppresses Psi monotonically; held out of
+    # analyses
 )
 p <- length (param_names)
 
@@ -70,7 +71,10 @@ fixed <- list (
 # ---------------------------------------------------------------------------
 # Generate Morris OAT design
 # ---------------------------------------------------------------------------
-cli_alert_info ("Generating Morris design (r=15 trajectories, p={p} parameters)...")
+cli_alert_info (
+    "Generating Morris design (r={.val 15} trajectories, \\
+    p={.val {p}} parameters)..."
+)
 m <- morris (
     model = NULL,
     factors = param_names,
@@ -85,19 +89,26 @@ cli_alert_info ("Design has {nrow(m$X)} rows")
 design_full <- as.data.frame (m$X)
 colnames (design_full) <- param_names
 for (nm in names (fixed)) design_full [[nm]] <- fixed [[nm]]
-design_full$theta <- pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
+design_full$theta <-
+    pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
 design_full$n <- as.integer (design_full$n)
 design_full$t_max <- as.integer (design_full$t_max)
 
 write.csv (design_full, "design_morris.csv", row.names = FALSE)
-cli_alert_info ("Wrote design_morris.csv ({nrow(design_full)} rows x {ncol(design_full)} cols)")
+cli_alert_info (
+    "Wrote design_morris.csv ({.val {nrow(design_full)}} rows x \\
+    {.val {ncol(design_full)} cols)"
+)
 
 # ---------------------------------------------------------------------------
 # Run the Rust binary
 # ---------------------------------------------------------------------------
 binary <- "./target/release/escalation"
 if (!file.exists (binary)) {
-    stop ("Binary not found at ", binary, " — run 'cargo build --release' first")
+    cli_abort (
+        "Binary not found at {.file {binary}} — \\
+        run 'cargo build --release' first"
+    )
 }
 
 cli_alert_info ("Running binary...")
@@ -111,7 +122,10 @@ result <- processx::run (
     error_on_status = FALSE
 )
 if (result$status != 0) {
-    stop ("Binary exited with status ", result$status, "\nstderr: ", result$stderr)
+    cli_aobrt (
+        "Binary exited with status {.val {result$status}},
+        stderr: {result$stderr}"
+    )
 }
 
 # ---------------------------------------------------------------------------
@@ -120,11 +134,15 @@ if (result$status != 0) {
 # ---------------------------------------------------------------------------
 raw <- read.csv ("morris_raw.csv")
 if (nrow (raw) != 2 * nrow (design_full)) {
-    cli_alert_warning ("Expected {2 * nrow(design_full)} rows, got {nrow(raw)}")
+    cli_alert_warning (
+        "Expected {.val {2 * nrow(design_full)}} rows, got {.val {nrow(raw)}}"
+    )
 }
 psi_vals <- raw$psi [seq (1, nrow (raw), by = 2)]
 if (any (is.na (psi_vals))) {
-    cli_alert_warning ("{sum(is.na(psi_vals))} NA psi values replaced with 0")
+    cli_alert_warning (
+        "{.val {sum(is.na(psi_vals))}} NA psi values replaced with 0"
+    )
     psi_vals [is.na (psi_vals)] <- 0
 }
 

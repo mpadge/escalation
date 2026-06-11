@@ -34,25 +34,32 @@ all_bsup <- c (
     eta_obs = 0.1
 )
 
-FIXED_EXCLUDE <- c ("delta") # fixed structural params excluded from all analyses
+# fixed structural params excluded from all analyses
+FIXED_EXCLUDE <- c ("delta") # nolint
 
-TOP_N <- 8 # parameters to include in GP (more than Sobol to preserve coverage)
+# parameters to include in GP (more than Sobol to preserve coverage)
+TOP_N <- 8 # #nolint
 if (file.exists ("sobol_results.csv")) {
     sobol_df <- read.csv ("sobol_results.csv")
     sobol_df <- sobol_df [!(sobol_df$param %in% FIXED_EXCLUDE), ]
     param_names <- sobol_df$param [seq_len (min (TOP_N, nrow (sobol_df)))]
     cli_alert_info (col_yellow (
-        "Using top {length(param_names)} parameters from Sobol (delta excluded): {.field {param_names}}"
+        "Using top {length(param_names)} parameters from Sobol \\
+        (delta excluded): {.field {param_names}}"
     ))
 } else if (file.exists ("morris_results.csv")) {
     morris_df <- read.csv ("morris_results.csv")
     morris_df <- morris_df [!(morris_df$param %in% FIXED_EXCLUDE), ]
-    param_names <- as.character (morris_df$param [seq_len (min (TOP_N, nrow (morris_df)))])
-    cli_alert_warning ("sobol_results.csv not found; using top {length(param_names)} \\
-                     parameters from Morris (delta excluded)")
+    param_names <- morris_df$param [seq_len (min (TOP_N, nrow (morris_df)))]
+    cli_alert_warning (col_yellow (
+        "{.file sobol_results.csv} not found; using top {length(param_names)} \\
+                     parameters from Morris (delta excluded)"
+    ))
 } else {
     param_names <- all_param_names
-    cli_alert_warning ("No prior results; using all {length(param_names)} parameters")
+    cli_alert_warning (
+        "No prior results; using all {length(param_names)} parameters"
+    )
 }
 p <- length (param_names)
 
@@ -65,7 +72,7 @@ log_dir <- if (!is.null (d$log_dir)) d$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
 old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
 if (length (old_done) > 0) file.remove (old_done)
-cli_alert_info ("Progress files will be written to {log_dir}")
+cli_alert_info ("Progress files will be written to {.file {log_dir}}")
 
 fixed <- list (
     n = as.integer (d$n), mu0 = 0.5, sigma0 = d$sigma0,
@@ -86,20 +93,22 @@ fixed <- list (
 # ---------------------------------------------------------------------------
 # LHS design
 # ---------------------------------------------------------------------------
-N_LHS <- as.integer (if (!is.null (d$n_lhs)) d$n_lhs else 1000L)
-cli_alert_info ("Generating LHS design (N={N_LHS}, p={p})...")
+N_LHS <- as.integer (if (!is.null (d$n_lhs)) d$n_lhs else 1000L) # nolint
+cli_alert_info ("Generating LHS design (N={.val {N_LHS}}, p={.val {p}})...")
 lhs_unit <- maximinLHS (N_LHS, p)
 design_scaled <- as.data.frame (lhs_unit)
 colnames (design_scaled) <- param_names
 for (nm in param_names) {
-    design_scaled [[nm]] <- binf [nm] + (bsup [nm] - binf [nm]) * design_scaled [[nm]]
+    design_scaled [[nm]] <-
+        binf [nm] + (bsup [nm] - binf [nm]) * design_scaled [[nm]]
 }
 
 # Expand to full Params CSV
 design_full <- design_scaled
 for (nm in names (fixed)) design_full [[nm]] <- fixed [[nm]]
 for (nm in param_names) design_full [[nm]] <- design_scaled [[nm]]
-design_full$theta <- pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
+design_full$theta <-
+    pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
 design_full$n <- as.integer (design_full$n)
 design_full$t_max <- as.integer (design_full$t_max)
 
@@ -111,11 +120,19 @@ cli_alert_info ("Wrote design_lhs.csv")
 # ---------------------------------------------------------------------------
 binary <- "./target/release/escalation"
 n_rep <- as.integer (if (!is.null (d$n_rep_gp)) d$n_rep_gp else 5L)
-if (!file.exists (binary)) stop ("Binary not found — run 'cargo build --release'")
+if (!file.exists (binary)) {
+    cli_abort ("Binary not found — run 'cargo build --release'")
+}
 
 n_expected <- N_LHS * n_rep
-cli_alert_info ("Running binary ({N_LHS} design points x {n_rep} replicates = {n_expected} pairs)...")
-cli_alert_info ("Expected {n_expected} progress files — monitor: ls {log_dir}/*.done | wc -l")
+cli_alert_info (
+    "Running binary ({.val {N_LHS}} design points x \\
+    {.val {n_rep}} replicates = {.val {n_expected}} pairs)..."
+)
+cli_alert_info (
+    "Expected {.val {n_expected}} progress files \\
+    — use {.code make progress} to see."
+)
 result <- processx::run (
     binary,
     c (
@@ -136,17 +153,19 @@ raw <- read.csv ("gp_train_raw.csv")
 
 # Rows: for each design point, 2*(mu0 lo + hi) * n_rep = 2*n_rep rows
 # mu0==0.4 rows have psi values; group by design_row index
-# Assign a design_row id: row pairs (lo, hi) repeat for each seed then each design pt
-# Layout: [pair1_seed0_lo, pair1_seed0_hi, pair1_seed1_lo, ..., pair2_seed0_lo, ...]
-raw <- raw %>%
+# Assign a design_row id: row pairs (lo, hi) repeat for each seed then each
+# design pt
+# Layout: [pair1_seed0_lo, pair1_seed0_hi, pair1_seed1_lo, ...,
+#          pair2_seed0_lo, ...]
+raw <- raw |>
     mutate (
         pair_idx = ceiling (row_number () / (2 * n_rep)),
         is_lo    = (row_number () %% 2 == 1)
     )
 
-gp_data <- raw %>%
-    filter (is_lo) %>%
-    group_by (pair_idx) %>%
+gp_data <- raw |>
+    filter (is_lo) |>
+    group_by (pair_idx) |>
     summarise (
         psi_mean = mean (psi, na.rm = TRUE),
         psi_sd = sd (psi, na.rm = TRUE),
@@ -173,14 +192,15 @@ gp_data$quintile <- cut (gp_data$psi_mean,
 )
 
 set.seed (123)
-train_idx <- unlist (lapply (split (seq_len (N_LHS), gp_data$quintile), function (idx) {
-    sample (idx, size = floor (0.8 * length (idx)))
-}))
+train_idx <- unlist (lapply (
+    split (seq_len (N_LHS), gp_data$quintile),
+    function (idx) sample (idx, size = floor (0.8 * length (idx)))
+))
 test_idx <- setdiff (seq_len (N_LHS), train_idx)
 cli_alert_info ("Train: {length(train_idx)}  Test: {length(test_idx)}")
 
-X_train <- gp_data [train_idx, param_names, drop = FALSE]
-X_test <- gp_data [test_idx, param_names, drop = FALSE]
+X_train <- gp_data [train_idx, param_names, drop = FALSE] # nolint
+X_test <- gp_data [test_idx, param_names, drop = FALSE] # nolint
 y_train <- gp_data$psi_mean [train_idx]
 y_test <- gp_data$psi_mean [test_idx]
 tau_train <- gp_data$tau_psi_mean [train_idx]
@@ -225,7 +245,9 @@ pred_psi <- predict (fit_psi, newdata = X_test, type = "UK", checkNames = FALSE)
 pred_tau <- predict (fit_tau, newdata = X_test, type = "UK", checkNames = FALSE)
 
 rmse_psi <- sqrt (mean ((pred_psi$mean - y_test)^2))
-rmse_tau <- sqrt (mean ((pred_tau$mean - gp_data$tau_psi_mean [test_idx])^2, na.rm = TRUE))
+rmse_tau <- sqrt (mean (
+    (pred_tau$mean - gp_data$tau_psi_mean [test_idx])^2, na.rm = TRUE
+))
 
 # 95% prediction interval coverage
 in_pi_psi <- abs (pred_psi$mean - y_test) <= 1.96 * pred_psi$sd
@@ -236,7 +258,10 @@ validation <- data.frame (
     value  = c (rmse_psi, rmse_tau, coverage_psi)
 )
 write.csv (validation, "gp_validation.csv", row.names = FALSE)
-cli_alert_info ("Validation: RMSE(Psi)={round(rmse_psi, 4)}  Coverage(Psi)={round(coverage_psi, 3)}")
+cli_alert_info (
+    "Validation: RMSE(Psi)={.val {round(rmse_psi, 4)}}  \\
+    Coverage(Psi)={.val {round(coverage_psi, 3)}}"
+)
 
 # ---------------------------------------------------------------------------
 # Hyperparameters: ARD length scales and output variance
@@ -250,7 +275,8 @@ hyperparams <- data.frame (
     ell = ell,
     sensitivity = 1 / ell # inverse length scale ~ influence
 )
-hyperparams <- hyperparams [order (hyperparams$ell), ] # short ell first = most sensitive
+# short ell first = most sensitive
+hyperparams <- hyperparams [order (hyperparams$ell), ]
 
 meta <- data.frame (
     param = c ("sigma2", "nugget"),
@@ -261,5 +287,8 @@ hyperparams <- rbind (hyperparams, meta)
 write.csv (hyperparams, "gp_hyperparams.csv", row.names = FALSE)
 
 cli_alert_info ("ARD length scales (short = sensitive):")
-print (hyperparams [hyperparams$param %in% param_names, c ("param", "ell")], digits = 3)
+print (
+    hyperparams [hyperparams$param %in% param_names,
+                 c ("param", "ell")], digits = 3
+)
 cli_alert_info ("Wrote gp_hyperparams.csv")

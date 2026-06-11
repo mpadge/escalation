@@ -107,20 +107,20 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
   Stage 2 phase diagram plots`. Do not modify the existing `plots` target.
 
 ## T002-9: Run plots2 and confirm outputs
-- [ ] T002-9: Instruct the user to run `make plots2` and report back that 6 PNG files
+- [x] T002-9: Instruct the user to run `make plots2` and report back that 6 PNG files
   exist in `results/plots/` matching `phase2_*.png`. Do not run this yourself. If any
   plot fails, report the error. Confirm that the Ψ = 1 contour is visible in any panel
   where Ψ > 1 was reported in T002-6.
 
 ## T002-10: Write stage results summary
-- [ ] T002-10: Write `specs/002-equilibrium-surfaces/results/summary.md` documenting the
+- [x] T002-10: Write `specs/002-equilibrium-surfaces/results/summary.md` documenting the
   full quantitative results: GP hyperparameter tables for both conditions, per-pair phase
   diagram summary table, the maximum Ψ observed, and whether the central hypothesis
   (Ψ > 1 exists in the top-4 parameter space) was confirmed or not. Structure analogous
   to `specs/001-revise-param-ranges/results/summary.md`.
 
 ## T002-11: Write stage interpretation
-- [ ] T002-11: Write `specs/002-equilibrium-surfaces/results/interpretation.md` as a
+- [x] T002-11: Write `specs/002-equilibrium-surfaces/results/interpretation.md` as a
   prose narrative in the style of `specs/001-revise-param-ranges/results/interpretation.md`.
   Address: (1) what the absolute E_lo and E_hi surfaces reveal about which parameter
   combinations produce high versus low equilibrium escalation; (2) whether and where the

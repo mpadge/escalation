@@ -83,7 +83,7 @@ make_phase_grid <- function (p_a, p_b, n_grid = 50) {
 
 # Build phases for all pairs of top parameters
 pairs <- combn (top_params, 2, simplify = FALSE)
-cli_alert_info ("Building {length(pairs)} phase diagrams...")
+cli_alert_info ("Building {.value {length(pairs)}} phase diagrams...")
 
 for (pair in pairs) {
     p_a <- pair [1]
@@ -112,7 +112,7 @@ for (pair in pairs) {
         paste0 ("phase_", tag, "_tau.csv"),
         row.names = FALSE
     )
-    cli_alert_info ("Wrote phase_{tag}.csv")
+    cli_alert_info ("Wrote {.file {phase_{tag}.csv}")
 }
 
 # ---------------------------------------------------------------------------
@@ -134,12 +134,19 @@ x1_gp <- make_sobol_sample (n_sobol)
 x2_gp <- make_sobol_sample (n_sobol)
 s_gp <- sobol2007 (model = NULL, X1 = x1_gp, X2 = x2_gp, nboot = 0)
 
-# Evaluate GP mean on full Saltelli design (SK = Simple Kriging, no variance,
-# much faster than UK for large n)
-psi_gp <- predict (fit_psi,
-    newdata = s_gp$X [, param_names, drop = FALSE],
-    type = "SK", checkNames = FALSE
-)$mean
+# Evaluate GP mean on full Saltelli design in batches: the n_test × n_train
+# covariance matrix overflows a 32-bit integer when n_test > ~14M rows.
+n_pred <- nrow (s_gp$X)
+batch_size <- 1e4L
+psi_gp <- numeric (n_pred)
+for (start in seq (1L, n_pred, by = batch_size)) {
+    end <- min (start + batch_size - 1L, n_pred)
+    psi_gp [start:end] <- predict (
+        fit_psi,
+        newdata = s_gp$X [start:end, param_names, drop = FALSE],
+        type = "SK", checkNames = FALSE
+    )$mean
+}
 s_gp <- tell (s_gp, psi_gp)
 
 sobol_gp <- data.frame (
@@ -152,4 +159,4 @@ write.csv (sobol_gp, "sobol_gp.csv", row.names = FALSE)
 
 cli_alert_info ("Emulator-based Sobol indices (ranked by ST):")
 print (sobol_gp, digits = 3)
-cli_alert_info ("Wrote sobol_gp.csv")
+cli_alert_info ("Wrote {.file sobol_gp.csv}")

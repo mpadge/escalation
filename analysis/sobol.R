@@ -7,148 +7,154 @@
 # Prerequisites: install.packages(c("sensitivity", "processx", "dplyr", "cli"))
 # Run from project root: Rscript analysis/sobol.R
 
-library(sensitivity)
-library(processx)
-library(dplyr)
-library(jsonlite)
-library(cli)
+library (sensitivity)
+library (processx)
+library (dplyr)
+library (jsonlite)
+library (cli)
 
-set.seed(42)
+set.seed (42)
 
 pars <- jsonlite::read_json ("defaults.json", pretty = TRUE)
 
 # ---------------------------------------------------------------------------
 # Select parameters: top N by mu* from Morris (or all 11 if no prior results)
 # ---------------------------------------------------------------------------
-TOP_N <- pars$top_n   # number of parameters to include in Sobol
+TOP_N <- pars$top_n # number of parameters to include in Sobol
 
 # delta is fixed (suppresses Psi monotonically) — excluded from all analyses
-FIXED_EXCLUDE <- c("delta")
+FIXED_EXCLUDE <- c ("delta")
 
-all_param_names <- c(
-  "gamma", "lambda", "alpha", "theta", "beta",
-  "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs"
+all_param_names <- c (
+    "gamma", "lambda", "alpha", "theta", "beta",
+    "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs"
 )
-all_binf <- c(gamma=2.0, lambda=1.0, alpha=0.1, theta=1.0, beta=0.0,
-              w_win=0.1, b=0.0, w_loss=0.1, dw_obs=0.0, dw_bridge=0.0,
-              eta_obs=0.001)
-all_bsup <- c(gamma=4.0, lambda=5.0, alpha=2.0, theta=4.0, beta=3.0,
-              w_win=2.0, b=2.0, w_loss=2.0, dw_obs=0.2, dw_bridge=0.2,
-              eta_obs=0.1)
+all_binf <- c (
+    gamma = 2.0, lambda = 1.0, alpha = 0.1, theta = 1.0, beta = 0.0,
+    w_win = 0.1, b = 0.0, w_loss = 0.1, dw_obs = 0.0, dw_bridge = 0.0,
+    eta_obs = 0.001
+)
+all_bsup <- c (
+    gamma = 4.0, lambda = 5.0, alpha = 2.0, theta = 4.0, beta = 3.0,
+    w_win = 2.0, b = 2.0, w_loss = 2.0, dw_obs = 0.2, dw_bridge = 0.2,
+    eta_obs = 0.1
+)
 
-if (file.exists("morris_results.csv")) {
-  morris_df <- read.csv("morris_results.csv")
-  morris_df <- morris_df[!(morris_df$param %in% FIXED_EXCLUDE), ]
-  param_names <- as.character(morris_df$param[seq_len(min(TOP_N, nrow(morris_df)))])
-  cli_alert_info("Using top {length(param_names)} parameters from Morris screening \\
+if (file.exists ("morris_results.csv")) {
+    morris_df <- read.csv ("morris_results.csv")
+    morris_df <- morris_df [!(morris_df$param %in% FIXED_EXCLUDE), ]
+    param_names <- as.character (morris_df$param [seq_len (min (TOP_N, nrow (morris_df)))])
+    cli_alert_info ("Using top {length(param_names)} parameters from Morris screening \\
                   (delta excluded): {paste(param_names, collapse = ', ')}")
 } else {
-  param_names <- all_param_names
-  cli_alert_warning("morris_results.csv not found; using all {length(param_names)} parameters")
+    param_names <- all_param_names
+    cli_alert_warning ("morris_results.csv not found; using all {length(param_names)} parameters")
 }
-p <- length(param_names)
+p <- length (param_names)
 
-binf <- all_binf[param_names]
-bsup <- all_bsup[param_names]
+binf <- all_binf [param_names]
+bsup <- all_bsup [param_names]
 
 # Structural constants from defaults.json; inactive free params at midpoints.
-d <- jsonlite::fromJSON("defaults.json")
-log_dir <- if (!is.null(d$log_dir)) d$log_dir else "/tmp/escalation"
-dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
-old_done <- list.files(log_dir, pattern = "\\.done$", full.names = TRUE)
-if (length(old_done) > 0) file.remove(old_done)
-cli_alert_info("Progress files will be written to {log_dir}")
+d <- jsonlite::fromJSON ("defaults.json")
+log_dir <- if (!is.null (d$log_dir)) d$log_dir else "/tmp/escalation"
+dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
+old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
+if (length (old_done) > 0) file.remove (old_done)
+cli_alert_info ("Progress files will be written to {log_dir}")
 
-fixed <- list(
-  n = 150L, mu0 = 0.5, sigma0 = d$sigma0,
-  c = d$c, e = d$e,
-  dw_coop = d$dw_coop, dw_sub = d$dw_sub, dw_excl = d$dw_excl,
-  eta = d$eta,
-  delta_direct = d$delta_direct, delta_exploit = d$delta_exploit,
-  w_min = d$w_min, w_max = d$w_max,
-  sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
-  eta_trauma = d$eta_trauma,
-  delta = d$delta,
-  t_max = 3000L,
-  # parameters not in the active set fixed at midpoint of their range
-  gamma = 3.0, lambda = 3.0, alpha = 1.0, theta = 2L, beta = 1.5,
-  w_win = 1.0, b = 1.0, w_loss = 1.0, dw_obs = 0.1, dw_bridge = 0.1,
-  eta_obs = 0.05
+fixed <- list (
+    n = 150L, mu0 = 0.5, sigma0 = d$sigma0,
+    c = d$c, e = d$e,
+    dw_coop = d$dw_coop, dw_sub = d$dw_sub, dw_excl = d$dw_excl,
+    eta = d$eta,
+    delta_direct = d$delta_direct, delta_exploit = d$delta_exploit,
+    w_min = d$w_min, w_max = d$w_max,
+    sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
+    eta_trauma = d$eta_trauma,
+    delta = d$delta,
+    t_max = 3000L,
+    # parameters not in the active set fixed at midpoint of their range
+    gamma = 3.0, lambda = 3.0, alpha = 1.0, theta = 2L, beta = 1.5,
+    w_win = 1.0, b = 1.0, w_loss = 1.0, dw_obs = 0.1, dw_bridge = 0.1,
+    eta_obs = 0.05
 )
 
 # ---------------------------------------------------------------------------
 # Saltelli design: X1 and X2 sampled uniformly on actual parameter ranges
 # ---------------------------------------------------------------------------
-n_sobol <- pars$n_sobol   # total evaluations = n * (2p + 2)
-cli_alert_info("Generating Saltelli design (n={n_sobol}, p={p})...")
-cli_alert_info("Total binary calls: {n_sobol * (2 * p + 2)}")
+n_sobol <- pars$n_sobol # total evaluations = n * (2p + 2)
+cli_alert_info ("Generating Saltelli design (n={n_sobol}, p={p})...")
+cli_alert_info ("Total binary calls: {n_sobol * (2 * p + 2)}")
 
-make_design <- function(n, pnames, lo, hi) {
-  mat <- matrix(runif(n * length(pnames)), n, length(pnames))
-  df  <- as.data.frame(mat)
-  colnames(df) <- pnames
-  for (nm in pnames) df[[nm]] <- lo[nm] + (hi[nm] - lo[nm]) * df[[nm]]
-  df
+make_design <- function (n, pnames, lo, hi) {
+    mat <- matrix (runif (n * length (pnames)), n, length (pnames))
+    df <- as.data.frame (mat)
+    colnames (df) <- pnames
+    for (nm in pnames) df [[nm]] <- lo [nm] + (hi [nm] - lo [nm]) * df [[nm]]
+    df
 }
 
-X1 <- make_design(n_sobol, param_names, binf, bsup)
-X2 <- make_design(n_sobol, param_names, binf, bsup)
+X1 <- make_design (n_sobol, param_names, binf, bsup)
+X2 <- make_design (n_sobol, param_names, binf, bsup)
 
-s <- sobol2007(model = NULL, X1 = X1, X2 = X2, nboot = 100)
-n_expected <- nrow(s$X)
-cli_alert_info("Saltelli design has {n_expected} rows")
-cli_alert_info("Expected {n_expected} progress files — monitor: ls {log_dir}/*.done | wc -l")
+s <- sobol2007 (model = NULL, X1 = X1, X2 = X2, nboot = 100)
+n_expected <- nrow (s$X)
+cli_alert_info ("Saltelli design has {n_expected} rows")
+cli_alert_info ("Expected {n_expected} progress files — monitor: ls {log_dir}/*.done | wc -l")
 
 # Expand to full Params CSV
 design_full <- s$X
 # Set all fixed params
-for (nm in names(fixed)) design_full[[nm]] <- fixed[[nm]]
+for (nm in names (fixed)) design_full [[nm]] <- fixed [[nm]]
 # Override with free param values (already in s$X)
-for (nm in param_names) design_full[[nm]] <- s$X[[nm]]
+for (nm in param_names) design_full [[nm]] <- s$X [[nm]]
 # Integer coercions
-design_full$theta <- pmax(1L, pmin(4L, as.integer(round(design_full$theta))))
-design_full$n     <- as.integer(design_full$n)
-design_full$t_max <- as.integer(design_full$t_max)
+design_full$theta <- pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
+design_full$n <- as.integer (design_full$n)
+design_full$t_max <- as.integer (design_full$t_max)
 
-write.csv(design_full, "design_sobol.csv", row.names = FALSE)
-cli_alert_info("Wrote design_sobol.csv")
+write.csv (design_full, "design_sobol.csv", row.names = FALSE)
+cli_alert_info ("Wrote design_sobol.csv")
 
 # ---------------------------------------------------------------------------
 # Run the Rust binary
 # ---------------------------------------------------------------------------
 binary <- "./target/release/escalation"
-if (!file.exists(binary)) stop("Binary not found — run 'cargo build --release'")
+if (!file.exists (binary)) stop ("Binary not found — run 'cargo build --release'")
 
-cli_alert_info("Running binary...")
-result <- processx::run(
-  binary,
-  c("sobol", "--design", "design_sobol.csv", "--output", "sobol_raw.csv",
-    "--log-dir", log_dir),
-  echo = TRUE, error_on_status = FALSE
+cli_alert_info ("Running binary...")
+result <- processx::run (
+    binary,
+    c (
+        "sobol", "--design", "design_sobol.csv", "--output", "sobol_raw.csv",
+        "--log-dir", log_dir
+    ),
+    echo = TRUE, error_on_status = FALSE
 )
 if (result$status != 0) {
-  stop("Binary failed: ", result$stderr)
+    stop ("Binary failed: ", result$stderr)
 }
 
 # ---------------------------------------------------------------------------
 # Extract psi (odd-indexed rows = lo runs; both lo and hi share the same psi)
 # ---------------------------------------------------------------------------
-raw <- read.csv("sobol_raw.csv")
-psi_vals <- raw$psi[seq(1, nrow(raw), by = 2)]
-psi_vals[is.na(psi_vals)] <- 0
+raw <- read.csv ("sobol_raw.csv")
+psi_vals <- raw$psi [seq (1, nrow (raw), by = 2)]
+psi_vals [is.na (psi_vals)] <- 0
 
-s <- tell(s, psi_vals)
+s <- tell (s, psi_vals)
 
-results <- data.frame(
-  param = param_names,
-  S1    = s$S$original,
-  ST    = s$T$original,
-  S1_ci = s$S$`max. c.i.` - s$S$`min. c.i.`,
-  ST_ci = s$T$`max. c.i.` - s$T$`min. c.i.`
+results <- data.frame (
+    param = param_names,
+    S1    = s$S$original,
+    ST    = s$T$original,
+    S1_ci = s$S$`max. c.i.` - s$S$`min. c.i.`,
+    ST_ci = s$T$`max. c.i.` - s$T$`min. c.i.`
 )
-results <- results[order(-results$ST), ]
-write.csv(results, "sobol_results.csv", row.names = FALSE)
+results <- results [order (-results$ST), ]
+write.csv (results, "sobol_results.csv", row.names = FALSE)
 
-cli_alert_info("Sobol results (ranked by ST):")
-print(results, digits = 3)
-cli_alert_info("Wrote sobol_results.csv")
+cli_alert_info ("Sobol results (ranked by ST):")
+print (results, digits = 3)
+cli_alert_info ("Wrote sobol_results.csv")

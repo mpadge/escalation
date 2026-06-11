@@ -50,8 +50,8 @@ progress: ## Show progress of running sensitivity analysis (morris/sobol/gp-trai
 kill: ## Kill all running escalation processes
 	@pkill -f 'target/release/escalation' && echo "Killed." || echo "No escalation process running."
 
-clean: ## Remove build artefacts and generated CSVs
+clean: ## Remove build artefacts and generated results
 	cargo clean
-	rm -f design_*.csv morris_raw.csv sobol_raw.csv gp_train_raw.csv gp_data.csv \
-	      gp_hyperparams.csv gp_validation.csv gp_psi.rds gp_tau.rds sobol_gp.csv \
-	      phase_*.csv morris_results.csv sobol_results.csv gp_train.csv
+	rm -f results/*.csv results/*.rds
+	rm -rf results/gp_phase results/plots
+	rm -rf /tmp/escalation

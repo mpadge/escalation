@@ -76,22 +76,45 @@ make_lhs_design <- function (param_names, binf, bsup, fixed, n_lhs,
 run_gp_binary <- function (binary, results_dir, log_dir, n_lhs, n_rep) {
     out_file      <- file.path (results_dir, "gp_train_raw.csv")
     expected_rows <- n_lhs * n_rep * 2L  # lo + hi per (design point, seed)
+    n_expected    <- n_lhs * n_rep
 
-    resume <- FALSE
-    if (file.exists (out_file)) {
-        n_existing <- length (readLines (out_file, warn = FALSE)) - 1L
-        if (n_existing >= expected_rows) {
-            cli_alert_info ("{.file {out_file}} already complete; skipping binary run.")
-            return (invisible (NULL))
-        }
-        cli_alert_warning (col_yellow (
-            "{.file {out_file}} has {.val {n_existing}}/{.val {expected_rows}} rows — resuming."
-        ))
-        resume <- TRUE
+    # Detect existing state
+    n_existing  <- if (file.exists (out_file))
+        length (readLines (out_file, warn = FALSE)) - 1L
+    else 0L
+    n_done      <- length (list.files (log_dir, pattern = "\\.done$"))
+    has_partial <- n_existing > 0L || n_done > 0L
+
+    if (n_existing >= expected_rows) {
+        cli_alert_info ("{.file {out_file}} already complete; skipping binary run.")
+        return (invisible (NULL))
     }
 
-    if (!resume) {
-        safe_clear_done_files (log_dir, expected_n = n_lhs * n_rep)
+    resume <- FALSE
+    if (has_partial) {
+        cli_alert_warning (col_yellow (
+            "Existing state: {.val {n_existing}}/{.val {expected_rows}} CSV rows, \\
+            {.val {n_done}} .done files."
+        ))
+        if (!interactive ()) {
+            cli_abort (
+                "Non-interactive session with partial results. \\
+                Clean {.file {results_dir}} and {.file {log_dir}} manually and re-run."
+            )
+        }
+        response <- readline ("Resume from checkpoint? [Y/n/restart] ")
+        response <- tolower (trimws (response))
+        if (response %in% c ("restart", "r")) {
+            cli_alert_info ("Restarting from scratch...")
+            if (file.exists (out_file)) chk <- file.remove (out_file)
+            old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
+            if (length (old_done) > 0L) chk <- file.remove (old_done)
+        } else if (response %in% c ("", "y", "yes")) {
+            resume <- TRUE
+            cli_alert_info ("Resuming from row {.val {n_existing / (n_rep * 2L) + 1L}}...")
+        } else {
+            cli_abort ("Aborted.")
+        }
     }
 
     n_expected <- n_lhs * n_rep

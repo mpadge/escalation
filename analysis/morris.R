@@ -38,22 +38,19 @@ param_names <- c (
 )
 p <- length (param_names)
 
-binf <- c (
-    gamma = 1.0, lambda = 1.0, alpha = 0.1, theta = 1.0, beta = 0.0,
-    w_win = 0.0, b = 0.0, w_loss = 0.1, dw_obs = 0.0, dw_bridge = 0.0,
-    eta_obs = 0.001
-)
-bsup <- c (
-    gamma = 5.0, lambda = 5.0, alpha = 2.0, theta = 4.0, beta = 1.0,
-    w_win = 2.0, b = 2.0, w_loss = 2.0, dw_obs = 0.2, dw_bridge = 0.2,
-    eta_obs = 0.1
-)
-
-# Fixed parameters (not varied in this stage)
 # Structural constants from defaults.toml; t_max reduced for screening speed.
 pars <- RcppTOML::parseTOML ("defaults.toml")
 pars_s <- pars$structural
 pars_a <- pars$analysis
+
+binf <- setNames (
+    vapply (param_names, function (nm) pars$ranges [[nm]] [1L], numeric (1)),
+    param_names
+)
+bsup <- setNames (
+    vapply (param_names, function (nm) pars$ranges [[nm]] [2L], numeric (1)),
+    param_names
+)
 
 log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)

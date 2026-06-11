@@ -65,40 +65,42 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   be touched — they hold archived results from prior stages.
 
 ## T001-8: Run Morris screening and report output
-- [ ] T001-8: Instruct the user to run `Rscript analysis/morris.R` from the project root
-  and report the console output back. Do not run this script yourself. Verify that the
-  script completes without error, that `results/morris_results.csv` exists, and that
-  the top-ranked parameters match expectations (observational learning parameters and
-  alpha should still dominate; beta should rank lower given its narrowed range).
+- [ ] T001-8: Instruct the user to run `make morris` from the project root
+  (i.e., `Rscript analysis/morris.R`) and report the console output back. Do not run
+  this script yourself. Verify that the script completes without error, that
+  `results/morris_results.csv` exists, and that the top-ranked parameters match
+  expectations (observational learning parameters and alpha should still dominate; beta
+  should rank lower given its narrowed range).
 
 ## T001-9: Run Sobol decomposition and report output
-- [ ] T001-9: Instruct the user to run `Rscript analysis/sobol.R` and report back the
-  console output and the contents of `results/sobol_results.csv`. Do not run this script
-  yourself. Check whether the total-effect ranking is consistent with Stage 0 (alpha
-  leading, dw_obs and eta_obs prominent). Note any substantial changes in ranking or
-  magnitude caused by the revised ranges.
+- [ ] T001-9: Instruct the user to run `make sobol` (i.e., `Rscript analysis/sobol.R`)
+  and report back the console output and the contents of `results/sobol_results.csv`. Do
+  not run this script yourself. Check whether the total-effect ranking is consistent with
+  Stage 0 (alpha leading, dw_obs and eta_obs prominent). Note any substantial changes in
+  ranking or magnitude caused by the revised ranges.
 
 ## T001-10: Run GP training and report hyperparameters
-- [ ] T001-10: Instruct the user to run `Rscript analysis/gp_train.R` and report back the
-  console output including the ARD length scales, validation RMSE, and coverage. Do not
-  run this script yourself. Verify that the nugget is non-zero (confirming that
-  `nugget.estim = TRUE` is working), that no ARD length scale is shorter than ~0.1
-  (which would indicate the GP is still at risk of collapsing to its prior mean in phase
-  diagrams), and that validation RMSE is comparable to or better than Stage 0 (0.237).
+- [ ] T001-10: Instruct the user to run `make gp` (i.e., `Rscript analysis/gp_train.R`
+  followed by `Rscript analysis/gp_phase.R`) and report back the console output including
+  the ARD length scales, validation RMSE, and coverage. Do not run this script yourself.
+  Verify that the nugget is non-zero (confirming that `nugget.estim = TRUE` is working),
+  that no ARD length scale is shorter than ~0.1 (which would indicate the GP is still at
+  risk of collapsing to its prior mean in phase diagrams), and that validation RMSE is
+  comparable to or better than Stage 0 (0.237).
 
 ## T001-11: Run GP phase diagrams and report results
-- [ ] T001-11: Instruct the user to run `Rscript analysis/gp_phase.R` and report back the
-  console output and a sample of the phase CSV files in `results/gp_phase/`. Do not run
-  this script yourself. Verify that phase CSV files no longer show constant `psi=0.078`
-  (the prior-mean collapse seen in Stage 0). If any phase diagram is still constant,
-  investigate whether the affected parameter pair has short ARD length scales and document
-  the finding.
+- [ ] T001-11: If `make gp` was not run as a unit in T001-10, instruct the user to run
+  `Rscript analysis/gp_phase.R` directly. Report back the console output and a sample of
+  the phase CSV files in `results/gp_phase/`. Do not run this script yourself. Verify
+  that phase CSV files no longer show constant `psi=0.078` (the prior-mean collapse seen
+  in Stage 0). If any phase diagram is still constant, investigate whether the affected
+  parameter pair has short ARD length scales and document the finding.
 
 ## T001-12: Run plots and report final outputs
-- [ ] T001-12: Instruct the user to run `Rscript analysis/plot.R` and report back that
-  plots have been generated in `results/plots/`. Do not run this script yourself. Confirm
-  the expected files exist: one PNG per phase pair plus summary comparison plots. If any
-  plot fails, report the error.
+- [ ] T001-12: Instruct the user to run `make plots` (i.e., `Rscript analysis/plot.R`)
+  and report back that plots have been generated in `results/plots/`. Do not run this
+  script yourself. Confirm the expected files exist: one PNG per phase pair plus summary
+  comparison plots. If any plot fails, report the error.
 
 ## T001-13: Write up Stage 1 results
 - [ ] T001-13: Once all scripts have run successfully, write a results summary analogous

@@ -39,6 +39,20 @@ mid_dw_obs    = 0.1
 mid_dw_bridge = 0.1
 mid_eta_obs   = 0.05
 
+[ranges]
+# Free-parameter ranges [lower, upper] used in Morris, Sobol, and GP analyses.
+gamma     = [1.0, 5.0]
+lambda    = [1.0, 5.0]
+alpha     = [0.1, 2.0]
+theta     = [1.0, 4.0]
+beta      = [0.0, 1.0]
+w_win     = [0.0, 2.0]
+b         = [0.0, 2.0]
+w_loss    = [0.1, 2.0]
+dw_obs    = [0.0, 0.2]
+dw_bridge = [0.0, 0.2]
+eta_obs   = [0.001, 0.1]
+
 [sobol]
 top_n       = 6    # top N from Morris to include in Sobol
 n_sobol     = 1000 # Saltelli sample size

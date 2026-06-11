@@ -40,15 +40,21 @@ all_param_names <- c (
     "gamma", "lambda", "alpha", "theta", "beta",
     "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs"
 )
-all_binf <- c (
-    gamma = 1.0, lambda = 1.0, alpha = 0.1, theta = 1.0, beta = 0.0,
-    w_win = 0.0, b = 0.0, w_loss = 0.1, dw_obs = 0.0, dw_bridge = 0.0,
-    eta_obs = 0.001
+all_binf <- setNames (
+    vapply (
+        all_param_names,
+        function (nm) pars$ranges [[nm]] [1L],
+        numeric (1)
+    ),
+    all_param_names
 )
-all_bsup <- c (
-    gamma = 5.0, lambda = 5.0, alpha = 2.0, theta = 4.0, beta = 1.0,
-    w_win = 2.0, b = 2.0, w_loss = 2.0, dw_obs = 0.2, dw_bridge = 0.2,
-    eta_obs = 0.1
+all_bsup <- setNames (
+    vapply (
+        all_param_names,
+        function (nm) pars$ranges [[nm]] [2L],
+        numeric (1)
+    ),
+    all_param_names
 )
 
 if (file.exists (file.path (results_dir, "morris_results.csv"))) {
@@ -79,21 +85,35 @@ if (length (old_done) > 0) file.remove (old_done)
 cli_alert_info ("Progress files will be written to {log_dir}")
 
 fixed <- list (
-    n = as.integer (pars$sobol$n_sobol_pop), mu0 = pars_a$mu0, sigma0 = pars_a$sigma0,
-    c = pars_a$c, e = pars_a$e,
-    dw_coop = pars_a$dw_coop, dw_sub = pars_a$dw_sub, dw_excl = pars_a$dw_excl,
+    n = as.integer (pars$sobol$n_sobol_pop),
+    mu0 = pars_a$mu0,
+    sigma0 = pars_a$sigma0,
+    c = pars_a$c,
+    e = pars_a$e,
+    dw_coop = pars_a$dw_coop,
+    dw_sub = pars_a$dw_sub,
+    dw_excl = pars_a$dw_excl,
     eta = pars_a$eta,
-    delta_direct = pars_a$delta_direct, delta_exploit = pars_a$delta_exploit,
-    w_min = pars_s$w_min, w_max = pars_s$w_max,
-    sigma_drift = pars_s$sigma_drift, rho_contested = pars_s$rho_contested,
+    delta_direct = pars_a$delta_direct,
+    delta_exploit = pars_a$delta_exploit,
+    w_min = pars_s$w_min,
+    w_max = pars_s$w_max,
+    sigma_drift = pars_s$sigma_drift,
+    rho_contested = pars_s$rho_contested,
     eta_trauma = pars_s$eta_trauma,
     delta = pars_s$delta,
     t_max = as.integer (pars_a$t_max_sobol),
     # parameters not in the active set fixed at midpoint of their range
-    gamma = pars_a$mid_gamma, lambda = pars_a$mid_lambda, alpha = pars_a$mid_alpha,
-    theta = as.integer (pars_a$mid_theta), beta = pars_a$mid_beta,
-    w_win = pars_a$mid_w_win, b = pars_a$mid_b, w_loss = pars_a$mid_w_loss,
-    dw_obs = pars_a$mid_dw_obs, dw_bridge = pars_a$mid_dw_bridge,
+    gamma = pars_a$mid_gamma,
+    lambda = pars_a$mid_lambda,
+    alpha = pars_a$mid_alpha,
+    theta = as.integer (pars_a$mid_theta),
+    beta = pars_a$mid_beta,
+    w_win = pars_a$mid_w_win,
+    b = pars_a$mid_b,
+    w_loss = pars_a$mid_w_loss,
+    dw_obs = pars_a$mid_dw_obs,
+    dw_bridge = pars_a$mid_dw_bridge,
     eta_obs = pars_a$mid_eta_obs
 )
 

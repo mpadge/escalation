@@ -71,15 +71,21 @@ cli_alert_info (
 # ---------------------------------------------------------------------------
 # Phase diagram helper: 50x50 grid for two focal parameters
 # ---------------------------------------------------------------------------
-all_binf <- c (
-    gamma = 1.0, lambda = 1.0, alpha = 0.1, theta = 1.0, beta = 0.0,
-    w_win = 0.0, b = 0.0, w_loss = 0.1, dw_obs = 0.0, dw_bridge = 0.0,
-    eta_obs = 0.001
+all_binf <- setNames (
+    vapply (
+        names (pars$ranges),
+        function (nm) pars$ranges [[nm]] [1L],
+        numeric (1)
+    ),
+    names (pars$ranges)
 )
-all_bsup <- c (
-    gamma = 5.0, lambda = 5.0, alpha = 2.0, theta = 4.0, beta = 1.0,
-    w_win = 2.0, b = 2.0, w_loss = 2.0, dw_obs = 0.2, dw_bridge = 0.2,
-    eta_obs = 0.1
+all_bsup <- setNames (
+    vapply (
+        names (pars$ranges),
+        function (nm) pars$ranges [[nm]] [2L],
+        numeric (1)
+    ),
+    names (pars$ranges)
 )
 
 make_phase_grid <- function (p_a, p_b, n_grid = 50) {

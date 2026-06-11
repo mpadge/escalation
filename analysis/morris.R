@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Morris elementary-effects screening for the escalation model.
-# Generates an OAT trajectory design, runs the Rust binary for each point (paired
-# mu0=0.4 vs mu0=0.6), and computes mu* and sigma per parameter.
+# Generates an OAT trajectory design, runs the Rust binary for each point
+# (paired mu0=0.4 vs mu0=0.6), and computes mu* and sigma per parameter.
 #
 # Prerequisites: install.packages(c("sensitivity", "processx", "dplyr", "cli"))
 # Run from project root: Rscript analysis/morris.R
@@ -14,6 +14,9 @@ library (jsonlite)
 library (cli)
 
 set.seed (42)
+
+results_dir <- "results"
+dir.create (results_dir, showWarnings = FALSE)
 
 # ---------------------------------------------------------------------------
 # Parameter space (11 free parameters after ratio reparametrisation)
@@ -94,7 +97,11 @@ design_full$theta <-
 design_full$n <- as.integer (design_full$n)
 design_full$t_max <- as.integer (design_full$t_max)
 
-write.csv (design_full, "design_morris.csv", row.names = FALSE)
+write.csv (
+    design_full,
+    file.path (results_dir, "design_morris.csv"),
+    row.names = FALSE
+)
 cli_alert_info (
     "Wrote design_morris.csv ({.val {nrow(design_full)}} rows x \\
     {.val {ncol(design_full)} cols)"
@@ -115,7 +122,9 @@ cli_alert_info ("Running binary...")
 result <- processx::run (
     binary,
     c (
-        "morris", "--design", "design_morris.csv", "--output", "morris_raw.csv",
+        "morris", "--design",
+        file.path (results_dir, "design_morris.csv"),
+        "--output", file.path (results_dir, "morris_raw.csv"),
         "--log-dir", log_dir
     ),
     echo = TRUE,
@@ -132,7 +141,7 @@ if (result$status != 0) {
 # Collect psi values (binary outputs 2 rows per design point: lo then hi)
 # Both rows carry the same psi; take the odd-indexed rows (lo runs).
 # ---------------------------------------------------------------------------
-raw <- read.csv ("morris_raw.csv")
+raw <- read.csv (file.path (results_dir, "morris_raw.csv"))
 if (nrow (raw) != 2 * nrow (design_full)) {
     cli_alert_warning (
         "Expected {.val {2 * nrow(design_full)}} rows, got {.val {nrow(raw)}}"
@@ -163,7 +172,11 @@ results <- data.frame (
     mu      = mu
 )
 results <- results [order (-results$mu_star), ]
-write.csv (results, "morris_results.csv", row.names = FALSE)
+write.csv (
+    results,
+    file.path (results_dir, "morris_results.csv"),
+    row.names = FALSE
+)
 
 cli_alert_info ("Morris results (ranked by mu*):")
 print (results, digits = 3)

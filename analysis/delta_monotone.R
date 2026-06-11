@@ -18,6 +18,14 @@ library (cli)
 
 set.seed (42)
 
+results_dir <- "results"
+if (!dir.exists (results_dir)) {
+    cli_abort (
+        "Output directory {.file {results_dir}} not found — \\
+        run {.file analysis/morris.R} first"
+    )
+}
+
 binary <- "./target/release/escalation"
 if (!file.exists (binary)) {
     cli_abort ("Binary not found — run 'cargo build --release'")
@@ -145,7 +153,11 @@ for (combo_name in names (combos)) {
     }
 }
 
-write.csv (results, "delta_monotone_results.csv", row.names = FALSE)
+write.csv (
+    results,
+    file.path (results_dir, "delta_monotone_results.csv"),
+    row.names = FALSE
+)
 cli_alert_info ("Wrote delta_monotone_results.csv")
 
 if (!all_pass) {

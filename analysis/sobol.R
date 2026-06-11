@@ -15,15 +15,24 @@ library (cli)
 
 set.seed (42)
 
+results_dir <- "results"
+if (!dir.exists (results_dir)) {
+    cli_abort (
+        "Output directory {.file {results_dir}} not found — \\
+        run {.file analysis/morris.R} first"
+    )
+}
+
 pars <- jsonlite::read_json ("defaults.json", pretty = TRUE)
 
 # ---------------------------------------------------------------------------
 # Select parameters: top N by mu* from Morris (or all 11 if no prior results)
 # ---------------------------------------------------------------------------
-TOP_N <- pars$top_n # number of parameters to include in Sobol
+# number of parameters to include in Sobol
+TOP_N <- pars$top_n # nolint
 
 # delta is fixed (suppresses Psi monotonically) — excluded from all analyses
-FIXED_EXCLUDE <- c ("delta")
+FIXED_EXCLUDE <- c ("delta") # nolint
 
 all_param_names <- c (
     "gamma", "lambda", "alpha", "theta", "beta",
@@ -40,15 +49,20 @@ all_bsup <- c (
     eta_obs = 0.1
 )
 
-if (file.exists ("morris_results.csv")) {
-    morris_df <- read.csv ("morris_results.csv")
+if (file.exists (file.path (results_dir, "morris_results.csv"))) {
+    morris_df <- read.csv (file.path (results_dir, "morris_results.csv"))
     morris_df <- morris_df [!(morris_df$param %in% FIXED_EXCLUDE), ]
-    param_names <- as.character (morris_df$param [seq_len (min (TOP_N, nrow (morris_df)))])
-    cli_alert_info ("Using top {length(param_names)} parameters from Morris screening \\
-                  (delta excluded): {paste(param_names, collapse = ', ')}")
+    param_names <- morris_df$param [seq_len (min (TOP_N, nrow (morris_df)))]
+    cli_alert_info (
+        "Using top {.value {length(param_names)}} parameters from Morris \\
+        screening (delta excluded): {.field {param_names}}"
+    )
 } else {
     param_names <- all_param_names
-    cli_alert_warning ("morris_results.csv not found; using all {length(param_names)} parameters")
+    cli_alert_warning (
+        "morris_results.csv not found; using all \\
+        {.value {length(param_names)}} parameters"
+    )
 }
 p <- length (param_names)
 
@@ -81,7 +95,7 @@ fixed <- list (
 )
 
 # ---------------------------------------------------------------------------
-# Saltelli design: X1 and X2 sampled uniformly on actual parameter ranges
+# Saltelli design: x1 and x2 sampled uniformly on actual parameter ranges
 # ---------------------------------------------------------------------------
 n_sobol <- pars$n_sobol # total evaluations = n * (2p + 2)
 cli_alert_info ("Generating Saltelli design (n={n_sobol}, p={p})...")
@@ -95,13 +109,16 @@ make_design <- function (n, pnames, lo, hi) {
     df
 }
 
-X1 <- make_design (n_sobol, param_names, binf, bsup)
-X2 <- make_design (n_sobol, param_names, binf, bsup)
+x1 <- make_design (n_sobol, param_names, binf, bsup)
+x2 <- make_design (n_sobol, param_names, binf, bsup)
 
-s <- sobol2007 (model = NULL, X1 = X1, X2 = X2, nboot = 100)
+s <- sobol2007 (model = NULL, x1 = x1, x2 = x2, nboot = 100)
 n_expected <- nrow (s$X)
-cli_alert_info ("Saltelli design has {n_expected} rows")
-cli_alert_info ("Expected {n_expected} progress files — monitor: ls {log_dir}/*.done | wc -l")
+cli_alert_info ("Saltelli design has {.value {n_expected}} rows")
+cli_alert_info (
+    "Expected {.value {n_expected}} progress files — \\
+    monitor with {.code make progress}."
+)
 
 # Expand to full Params CSV
 design_full <- s$X
@@ -110,24 +127,33 @@ for (nm in names (fixed)) design_full [[nm]] <- fixed [[nm]]
 # Override with free param values (already in s$X)
 for (nm in param_names) design_full [[nm]] <- s$X [[nm]]
 # Integer coercions
-design_full$theta <- pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
+design_full$theta <-
+    pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
 design_full$n <- as.integer (design_full$n)
 design_full$t_max <- as.integer (design_full$t_max)
 
-write.csv (design_full, "design_sobol.csv", row.names = FALSE)
+write.csv (
+    design_full,
+    file.path (results_dir, "design_sobol.csv"),
+    row.names = FALSE
+)
 cli_alert_info ("Wrote design_sobol.csv")
 
 # ---------------------------------------------------------------------------
 # Run the Rust binary
 # ---------------------------------------------------------------------------
 binary <- "./target/release/escalation"
-if (!file.exists (binary)) stop ("Binary not found — run 'cargo build --release'")
+if (!file.exists (binary)) {
+    cli_abort ("Binary not found — run 'cargo build --release'")
+}
 
 cli_alert_info ("Running binary...")
 result <- processx::run (
     binary,
     c (
-        "sobol", "--design", "design_sobol.csv", "--output", "sobol_raw.csv",
+        "sobol", "--design",
+        file.path (results_dir, "design_sobol.csv"),
+        "--output", file.path (results_dir, "sobol_raw.csv"),
         "--log-dir", log_dir
     ),
     echo = TRUE, error_on_status = FALSE
@@ -139,7 +165,7 @@ if (result$status != 0) {
 # ---------------------------------------------------------------------------
 # Extract psi (odd-indexed rows = lo runs; both lo and hi share the same psi)
 # ---------------------------------------------------------------------------
-raw <- read.csv ("sobol_raw.csv")
+raw <- read.csv (file.path (results_dir, "sobol_raw.csv"))
 psi_vals <- raw$psi [seq (1, nrow (raw), by = 2)]
 psi_vals [is.na (psi_vals)] <- 0
 
@@ -153,8 +179,12 @@ results <- data.frame (
     ST_ci = s$T$`max. c.i.` - s$T$`min. c.i.`
 )
 results <- results [order (-results$ST), ]
-write.csv (results, "sobol_results.csv", row.names = FALSE)
+write.csv (
+    results,
+    file.path (results_dir, "sobol_results.csv"),
+    row.names = FALSE
+)
 
 cli_alert_info ("Sobol results (ranked by ST):")
 print (results, digits = 3)
-cli_alert_info ("Wrote sobol_results.csv")
+cli_alert_info ("Wrote {.file sobol_results.csv}")

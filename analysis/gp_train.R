@@ -15,6 +15,14 @@ library (cli)
 
 set.seed (42)
 
+results_dir <- "results"
+if (!dir.exists (results_dir)) {
+    cli_abort (
+        "Output directory {.file {results_dir}} not found — \\
+        run {.file analysis/morris.R} first"
+    )
+}
+
 # ---------------------------------------------------------------------------
 # Parameter space: use Sobol-ranked top parameters where available
 # ---------------------------------------------------------------------------
@@ -39,16 +47,16 @@ FIXED_EXCLUDE <- c ("delta") # nolint
 
 # parameters to include in GP (more than Sobol to preserve coverage)
 TOP_N <- 8 # #nolint
-if (file.exists ("sobol_results.csv")) {
-    sobol_df <- read.csv ("sobol_results.csv")
+if (file.exists (file.path (results_dir, "sobol_results.csv"))) {
+    sobol_df <- read.csv (file.path (results_dir, "sobol_results.csv"))
     sobol_df <- sobol_df [!(sobol_df$param %in% FIXED_EXCLUDE), ]
     param_names <- sobol_df$param [seq_len (min (TOP_N, nrow (sobol_df)))]
     cli_alert_info (col_yellow (
         "Using top {length(param_names)} parameters from Sobol \\
         (delta excluded): {.field {param_names}}"
     ))
-} else if (file.exists ("morris_results.csv")) {
-    morris_df <- read.csv ("morris_results.csv")
+} else if (file.exists (file.path (results_dir, "morris_results.csv"))) {
+    morris_df <- read.csv (file.path (results_dir, "morris_results.csv"))
     morris_df <- morris_df [!(morris_df$param %in% FIXED_EXCLUDE), ]
     param_names <- morris_df$param [seq_len (min (TOP_N, nrow (morris_df)))]
     cli_alert_warning (col_yellow (
@@ -112,7 +120,11 @@ design_full$theta <-
 design_full$n <- as.integer (design_full$n)
 design_full$t_max <- as.integer (design_full$t_max)
 
-write.csv (design_full, "design_lhs.csv", row.names = FALSE)
+write.csv (
+    design_full,
+    file.path (results_dir, "design_lhs.csv"),
+    row.names = FALSE
+)
 cli_alert_info ("Wrote {.file design_lhs.csv}")
 
 # ---------------------------------------------------------------------------
@@ -125,7 +137,7 @@ if (!file.exists (binary)) {
 }
 
 n_expected <- N_LHS * n_rep
-out_file <- "gp_train_raw.csv"
+out_file <- file.path (results_dir, "gp_train_raw.csv")
 if (!file.exists (out_file)) {
     cli_alert_info (
         "Running binary ({.val {N_LHS}} design points x \\
@@ -139,9 +151,9 @@ if (!file.exists (out_file)) {
         binary,
         c (
             "gp-train",
-            "--design", "design_lhs.csv",
+            "--design", file.path (results_dir, "design_lhs.csv"),
             "--replicates", as.character (n_rep),
-            "--output", "gp_train_raw.csv",
+            "--output", file.path (results_dir, "gp_train_raw.csv"),
             "--log-dir", log_dir
         ),
         echo = TRUE, error_on_status = FALSE
@@ -157,7 +169,7 @@ if (!file.exists (out_file)) {
 # ---------------------------------------------------------------------------
 # Aggregate R=5 replicates per design point
 # ---------------------------------------------------------------------------
-raw <- read.csv ("gp_train_raw.csv")
+raw <- read.csv (file.path (results_dir, "gp_train_raw.csv"))
 
 # Rows: for each design point, 2*(mu0 lo + hi) * n_rep = 2*n_rep rows
 # mu0==0.4 rows have psi values; group by design_row index
@@ -165,7 +177,7 @@ raw <- read.csv ("gp_train_raw.csv")
 # design pt
 # Layout: [pair1_seed0_lo, pair1_seed0_hi, pair1_seed1_lo, ...,
 #          pair2_seed0_lo, ...]
-out_file <- "gp_data.csv"
+out_file <- file.path (results_dir, "gp_data.csv")
 if (!file.exists (out_file)) {
     raw <- raw |>
         mutate (
@@ -182,7 +194,8 @@ if (!file.exists (out_file)) {
             tau_psi_mean = mean (tau_psi, na.rm = TRUE),
             .groups = "drop"
         )
-    gp_data$psi_sd [is.na (gp_data$psi_sd)] <- 0 # sd is NA when only 1 valid value
+    # sd is NA when only 1 valid value
+    gp_data$psi_sd [is.na (gp_data$psi_sd)] <- 0
 
     # Attach design parameters
     design_ids <- seq_len (N_LHS)
@@ -214,7 +227,9 @@ train_idx <- unlist (lapply (
     function (idx) sample (idx, size = floor (0.8 * length (idx)))
 ))
 test_idx <- setdiff (seq_len (N_LHS), train_idx)
-cli_alert_info ("Train: {.val {length(train_idx)}}  Test: {.val {length(test_idx)}}")
+cli_alert_info (
+    "Train: {.val {length(train_idx)}}  Test: {.val {length(test_idx)}}"
+)
 
 X_train <- gp_data [train_idx, param_names, drop = FALSE] # nolint
 X_test <- gp_data [test_idx, param_names, drop = FALSE] # nolint
@@ -225,7 +240,9 @@ tau_train <- gp_data$tau_psi_mean [train_idx]
 # ---------------------------------------------------------------------------
 # Fit GPs
 # ---------------------------------------------------------------------------
-cli_alert_info ("Fitting GP on Psi (n_train={.val {nrow(X_train)}}, p={.val {p}})...")
+cli_alert_info (
+    "Fitting GP on Psi (n_train={.val {nrow(X_train)}}, p={.val {p}})..."
+)
 cli_alert_info ("DiceKriging Cholesky is O(n^3) — may take several minutes")
 
 noise_var_train <- gp_data$psi_sd [train_idx]^2
@@ -250,8 +267,8 @@ fit_tau <- km (
     control = list (trace = FALSE)
 )
 
-saveRDS (fit_psi, "gp_psi.rds")
-saveRDS (fit_tau, "gp_tau.rds")
+saveRDS (fit_psi, file.path (results_dir, "gp_psi.rds"))
+saveRDS (fit_tau, file.path (results_dir, "gp_tau.rds"))
 cli_alert_info ("Saved gp_psi.rds and gp_tau.rds")
 
 # ---------------------------------------------------------------------------
@@ -273,7 +290,11 @@ validation <- data.frame (
     metric = c ("rmse_psi", "rmse_tau", "coverage_95_psi"),
     value  = c (rmse_psi, rmse_tau, coverage_psi)
 )
-write.csv (validation, "gp_validation.csv", row.names = FALSE)
+write.csv (
+    validation,
+    file.path (results_dir, "gp_validation.csv"),
+    row.names = FALSE
+)
 cli_alert_info (
     "Validation: RMSE(Psi)={.val {round(rmse_psi, 4)}}  \\
     Coverage(Psi)={.val {round(coverage_psi, 3)}}"
@@ -284,7 +305,8 @@ cli_alert_info (
 # ---------------------------------------------------------------------------
 ell <- fit_psi@covariance@range.val  # ARD length scales (one per dimension)
 sigma2 <- fit_psi@covariance@sd2     # output variance
-nugget <- fit_psi@covariance@nugget  # 0 when noise.var supplied instead of nugget.estim
+nugget <- fit_psi@covariance@nugget
+# nugget is 0 when noise.var supplied instead of nugget.estim
 
 hyperparams <- data.frame (
     param = param_names,
@@ -300,7 +322,11 @@ meta <- data.frame (
     sensitivity = NA
 )
 hyperparams <- rbind (hyperparams, meta)
-write.csv (hyperparams, "gp_hyperparams.csv", row.names = FALSE)
+write.csv (
+    hyperparams,
+    file.path (results_dir, "gp_hyperparams.csv"),
+    row.names = FALSE
+)
 
 cli_alert_info ("ARD length scales (short = sensitive):")
 print (

@@ -5,7 +5,8 @@
 # of top-ranked parameters, and runs a cheap emulator-based Sobol analysis
 # using 10^6 Saltelli samples.
 #
-# Prerequisites: install.packages(c("DiceKriging", "sensitivity", "dplyr", "cli"))
+# Prerequisites:
+#   install.packages(c("DiceKriging", "sensitivity", "dplyr", "cli"))
 # Run from project root: Rscript analysis/gp_phase.R
 # Requires: gp_psi.rds, gp_tau.rds, gp_hyperparams.csv (from gp_train.R)
 
@@ -16,17 +17,26 @@ library (cli)
 
 set.seed (42)
 
+results_dir <- "results"
+if (!dir.exists (results_dir)) {
+    cli_abort ("Output directory {.file {results_dir}} not found \\
+        — run {.file analysis/morris.R} first"
+    )
+}
+phase_dir <- file.path (results_dir, "gp_phase")
+dir.create (phase_dir, recursive = TRUE, showWarnings = FALSE)
+
 # ---------------------------------------------------------------------------
 # Load fitted GPs and identify top parameters
 # ---------------------------------------------------------------------------
-for (f in c ("gp_psi.rds", "gp_hyperparams.csv")) {
+for (f in file.path (results_dir, c ("gp_psi.rds", "gp_hyperparams.csv"))) {
     if (!file.exists (f)) stop (f, " not found — run gp_train.R first")
 }
 
-fit_psi <- readRDS ("gp_psi.rds")
-fit_tau <- readRDS ("gp_tau.rds")
+fit_psi <- readRDS (file.path (results_dir, "gp_psi.rds"))
+fit_tau <- readRDS (file.path (results_dir, "gp_tau.rds"))
 
-hyperparams <- read.csv ("gp_hyperparams.csv")
+hyperparams <- read.csv (file.path (results_dir, "gp_hyperparams.csv"))
 param_rows <- hyperparams [!is.na (hyperparams$sensitivity), ]
 # short ell first = sensitive
 param_rows <- param_rows [order (param_rows$ell), ]
@@ -39,7 +49,7 @@ cli_alert_info (col_yellow (
 print (param_rows [, c ("param", "ell", "sensitivity")], digits = 3)
 
 # Medians from training data (for fixing non-focal parameters)
-gp_data <- read.csv ("gp_data.csv")
+gp_data <- read.csv (file.path (results_dir, "gp_data.csv"))
 param_medians <- sapply (
     param_names,
     function (nm) median (gp_data [[nm]], na.rm = TRUE)
@@ -107,9 +117,14 @@ for (pair in pairs) {
     phase_df$tau_mean <- pred_tau$mean
     phase_df$tau_sd <- pred_tau$sd
 
-    write.csv (phase_df, paste0 ("phase_", tag, ".csv"), row.names = FALSE)
-    write.csv (phase_df [, c (p_a, p_b, "tau_mean", "tau_sd")],
-        paste0 ("phase_", tag, "_tau.csv"),
+    write.csv (
+        phase_df,
+        file.path (phase_dir, paste0 ("phase_", tag, ".csv")),
+        row.names = FALSE
+    )
+    write.csv (
+        phase_df [, c (p_a, p_b, "tau_mean", "tau_sd")],
+        file.path (phase_dir, paste0 ("phase_", tag, "_tau.csv")),
         row.names = FALSE
     )
     cli_alert_info ("Wrote {.file {phase_{tag}.csv}")
@@ -155,7 +170,7 @@ sobol_gp <- data.frame (
     ST    = s_gp$T$original
 )
 sobol_gp <- sobol_gp [order (-sobol_gp$ST), ]
-write.csv (sobol_gp, "sobol_gp.csv", row.names = FALSE)
+write.csv (sobol_gp, file.path (results_dir, "sobol_gp.csv"), row.names = FALSE)
 
 cli_alert_info ("Emulator-based Sobol indices (ranked by ST):")
 print (sobol_gp, digits = 3)

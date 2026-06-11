@@ -13,14 +13,23 @@ library (dplyr, warn.conflicts = FALSE)
 library (tidyr)
 library (cli)
 
-dir.create ("plots", showWarnings = FALSE)
+results_dir <- "results"
+if (!dir.exists (results_dir)) {
+    cli_abort (
+        "Output directory {.file {results_dir}} not found \\
+        — run {.file analysis/morris.R} first"
+    )
+}
+phase_dir <- file.path (results_dir, "gp_phase")
+plots_dir <- file.path (results_dir, "plots")
+dir.create (plots_dir, recursive = TRUE, showWarnings = FALSE)
 
 theme_set (theme_minimal (base_size = 11))
 
 # ---------------------------------------------------------------------------
 # Phase diagrams
 # ---------------------------------------------------------------------------
-phase_files <- list.files (".", pattern = "^phase_.*\\.csv$")
+phase_files <- list.files (phase_dir, pattern = "^phase_.*\\.csv$")
 phase_files <- phase_files [!grepl ("_tau\\.csv$", phase_files)]
 
 if (length (phase_files) == 0) {
@@ -30,7 +39,7 @@ if (length (phase_files) == 0) {
 } else {
     for (f in phase_files) {
         tag <- sub ("^phase_", "", sub ("\\.csv$", "", f))
-        df <- read.csv (f)
+        df <- read.csv (file.path (phase_dir, f))
         xy <- setdiff (
             names (df),
             c ("psi_mean", "psi_sd", "tau_mean", "tau_sd")
@@ -57,7 +66,7 @@ if (length (phase_files) == 0) {
                 y        = yvar
             )
 
-        out <- file.path ("plots", paste0 ("phase_", tag, ".png"))
+        out <- file.path (plots_dir, paste0 ("phase_", tag, ".png"))
         ggsave (out, p_phase, width = 7, height = 5, dpi = 300)
         cli_alert_info ("Saved {out}")
     }
@@ -66,10 +75,10 @@ if (length (phase_files) == 0) {
 # ---------------------------------------------------------------------------
 # ARD length scales
 # ---------------------------------------------------------------------------
-if (!file.exists ("gp_hyperparams.csv")) {
+if (!file.exists (file.path (results_dir, "gp_hyperparams.csv"))) {
     cli_alert_warning ("gp_hyperparams.csv not found — skipping ARD plot")
 } else {
-    hp <- read.csv ("gp_hyperparams.csv") |>
+    hp <- read.csv (file.path (results_dir, "gp_hyperparams.csv")) |>
         filter (!is.na (sensitivity)) |>
         arrange (ell)
 
@@ -83,8 +92,14 @@ if (!file.exists ("gp_hyperparams.csv")) {
             y        = expression ("Length scale " * ell [d])
         )
 
-    ggsave ("plots/ard_lengths.png", p_ard, width = 6, height = 4, dpi = 300)
-    cli_alert_info ("Saved plots/ard_lengths.png")
+    ggsave (
+        file.path (plots_dir, "ard_lengths.png"),
+        p_ard,
+        width = 6,
+        height = 4,
+        dpi = 300
+    )
+    cli_alert_info ("Saved {.file {file.path (plots_dir, 'ard_lengths.png')}}")
 }
 
 # ---------------------------------------------------------------------------
@@ -92,8 +107,8 @@ if (!file.exists ("gp_hyperparams.csv")) {
 # ---------------------------------------------------------------------------
 sources <- list ()
 
-if (file.exists ("morris_results.csv")) {
-    m <- read.csv ("morris_results.csv") |>
+if (file.exists (file.path (results_dir, "morris_results.csv"))) {
+    m <- read.csv (file.path (results_dir, "morris_results.csv")) |>
         transmute (param,
             value = mu_star / max (mu_star, na.rm = TRUE),
             method = "Morris mu*"
@@ -101,14 +116,14 @@ if (file.exists ("morris_results.csv")) {
     sources [["morris"]] <- m
 }
 
-if (file.exists ("sobol_results.csv")) {
-    s <- read.csv ("sobol_results.csv") |>
+if (file.exists (file.path (results_dir, "sobol_results.csv"))) {
+    s <- read.csv (file.path (results_dir, "sobol_results.csv")) |>
         transmute (param, value = ST, method = "Sobol ST")
     sources [["sobol"]] <- s
 }
 
-if (file.exists ("sobol_gp.csv")) {
-    g <- read.csv ("sobol_gp.csv") |>
+if (file.exists (file.path (results_dir, "sobol_gp.csv"))) {
+    g <- read.csv (file.path (results_dir, "sobol_gp.csv")) |>
         transmute (param, value = ST, method = "GP-Sobol ST")
     sources [["gp"]] <- g
 }
@@ -144,12 +159,19 @@ if (length (sources) >= 2) {
         theme (legend.position = "bottom")
 
     ggsave (
-        "plots/sobol_comparison.png", p_sobol, width = 7, height = 5, dpi = 300
+        file.path (plots_dir, "sobol_comparison.png"),
+        p_sobol,
+        width = 7,
+        height = 5,
+        dpi = 300
     )
-    cli_alert_info ("Saved {.file plots/sobol_comparison.png}")
+    cli_alert_info (
+        "Saved {.file {file.path (plots_dir, 'sobol_comparison.png')}}"
+    )
 } else {
     cli_alert_warning (
-        "Need at least 2 of {{{.file morris_results.csv}, {.file sobol_results.csv}, \\
+        "Need at least 2 of {{{.file morris_results.csv}, \\
+        {.file sobol_results.csv}, \\
         {.file sobol_gp.csv}} for comparison plot"
     )
 }

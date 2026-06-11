@@ -82,7 +82,9 @@ bsup <- all_bsup [param_names]
 log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
 old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
-if (length (old_done) > 0) file.remove (old_done)
+if (length (old_done) > 0) {
+    chk <- file.remove (old_done)
+}
 cli_alert_info ("Progress files will be written to {log_dir}")
 
 fixed <- list (

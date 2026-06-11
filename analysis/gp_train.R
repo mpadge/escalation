@@ -96,14 +96,7 @@ run_gp_binary <- function (binary, results_dir, log_dir, n_lhs, n_rep) {
             "Existing state: {.val {n_existing}}/{.val {expected_rows}} CSV rows, \\
             {.val {n_done}} .done files."
         ))
-        if (!interactive ()) {
-            cli_abort (
-                "Non-interactive session with partial results. \\
-                Clean {.file {results_dir}} and {.file {log_dir}} manually and re-run."
-            )
-        }
-        response <- readline ("Resume from checkpoint? [Y/n/restart] ")
-        response <- tolower (trimws (response))
+        response <- tolower (trimws (readline ("Resume from checkpoint? [Y/n/restart] ")))
         if (response %in% c ("restart", "r")) {
             cli_alert_info ("Restarting from scratch...")
             if (file.exists (out_file)) chk <- file.remove (out_file)

@@ -18,4 +18,6 @@ for d in results/gp_phase results/plots; do
     [ -d "$d" ] && mv "$d" "$dest/"
 done
 
-echo "Archived to $dest"
+tar -czf "${dest}.tar.gz" -C results "$phase"
+rm -rf "$dest"
+echo "Archived to ${dest}.tar.gz"

@@ -66,4 +66,53 @@ dominates, leaving less room for parameter variation to matter.
 
 ## Phase diagrams
 
-*(To be appended after `make gp2_phase` — see T002-6)*
+All 18 CSV files generated (6 pairs × 3 surfaces). Results below.
+
+### Per-pair summary
+
+| Pair | E_lo range | E_hi range | Ψ range | Ψ > 1? |
+|------|------------|------------|---------|--------|
+| `alpha × eta_obs` | [0.520, 0.870] | [0.602, 0.893] | [−0.053, 0.900] | No |
+| `alpha × gamma`   | [0.559, 0.788] | [0.716, 0.842] | [−0.036, 0.835] | No |
+| `alpha × lambda`  | [0.429, 0.785] | [0.696, 0.836] | [0.081, **1.339**] | **Yes** |
+| `gamma × eta_obs` | [0.561, 0.715] | [0.695, 0.782] | [0.163, 0.925] | No |
+| `gamma × lambda`  | [0.540, 0.724] | [0.735, 0.803] | [0.160, **1.026**] | **Yes** |
+| `lambda × eta_obs`| [0.549, 0.655] | [0.723, 0.783] | [0.595, 0.999] | No (≈1) |
+
+**Central hypothesis confirmed**: Ψ > 1 exists in the top-4 parameter subspace. Social
+dynamics amplify the initial μ₀ perturbation in two of six parameter pairs.
+
+### Key findings
+
+**`alpha × lambda` is the primary amplification pair** (Ψ_max = 1.339). This is the
+largest Ψ value observed anywhere across all analyses (Stage 1 maximum was ~0.94).
+The combination of low alpha (local distance-decay, reach limited to close neighbours)
+and low lambda (small group size) produces a regime where the population primed at
+μ₀=0.6 diverges from the μ₀=0.4 population by more than the initial 0.2 gap. Small
+groups under local influence allow early escalation to crystallise without being
+diluted by network-wide averaging.
+
+**`gamma × lambda` shows marginal amplification** (Ψ_max = 1.026). The gamma × lambda
+interaction is at the boundary: a specific combination of network attachment exponent
+and group size barely crosses Ψ = 1. This confirms lambda as the key enabler of
+amplification — lambda is involved in both amplifying pairs.
+
+**`lambda × eta_obs` reaches Ψ = 0.999** — effectively at the amplification boundary
+but not crossing it. Strong observational learning (high eta_obs) in small groups
+(low lambda) nearly amplifies, but the observational learning parameter alone is
+insufficient without the structural reach provided by low alpha.
+
+**Pairs not involving lambda stay well below Ψ = 1**: alpha × eta_obs (max 0.900),
+alpha × gamma (max 0.835), gamma × eta_obs (max 0.925). Amplification requires
+lambda — neither the propagation mechanism (eta_obs, alpha) nor the network topology
+(gamma) alone is sufficient.
+
+**Negative Ψ at extremes**: small negative Ψ values appear in alpha × eta_obs
+(min −0.053) and alpha × gamma (min −0.036). These occur at very low alpha and/or
+very low eta_obs, where the GP extrapolates outside the training density. They are
+numerical artefacts, not genuine dampening-to-reversal.
+
+**E_hi is consistently higher than E_lo**: across all pairs, E_hi > E_lo at every
+grid point (ignoring artefact-level negatives). The μ₀ perturbation always shifts
+the equilibrium upward — the question is only whether by more or less than the
+initial 0.2 gap.

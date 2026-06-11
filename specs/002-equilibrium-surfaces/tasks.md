@@ -77,7 +77,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
   targets.
 
 ## T002-6: Run gp2_phase and append to gp.md
-- [ ] T002-6: Instruct the user to run `make gp2_phase` and report back the console output.
+- [x] T002-6: Instruct the user to run `make gp2_phase` and report back the console output.
   Do not run this yourself. Verify that 18 CSV files exist in `results/gp_phase2/` (6
   pairs × 3 surfaces). Report whether Ψ > 1 is observed in any pair's grid, and the
   maximum Ψ value found. Append a **Phase diagrams** section to
@@ -87,7 +87,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
   - Whether E_hi or E_lo shows any near-zero or near-1 saturation in any region
 
 ## T002-7: Update plot.R for two-GP phase outputs
-- [ ] T002-7: Add a new section to `analysis/plot.R` that reads from `results/gp_phase2/`
+- [x] T002-7: Add a new section to `analysis/plot.R` that reads from `results/gp_phase2/`
   and generates phase diagram plots for all 18 surfaces. For each of the 6 parameter
   pairs, produce a single multi-panel figure with three panels side-by-side: E_lo, E_hi,
   and Ψ. Requirements:
@@ -101,7 +101,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
   - Do not modify the existing plot functions for Stage 1 outputs.
 
 ## T002-8: Add Makefile plots2 target
-- [ ] T002-8: Add a `plots2` target to the `Makefile` that runs `Rscript analysis/plot.R
+- [x] T002-8: Add a `plots2` target to the `Makefile` that runs `Rscript analysis/plot.R
   --stage2`. Alternatively, if a command-line flag is awkward, add a separate
   `analysis/plot2.R` script and call that. Add to `.PHONY` with comment: `## Generate
   Stage 2 phase diagram plots`. Do not modify the existing `plots` target.

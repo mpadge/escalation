@@ -39,12 +39,12 @@ param_names <- c (
 p <- length (param_names)
 
 binf <- c (
-    gamma = 2.0, lambda = 1.0, alpha = 0.1, theta = 1.0, beta = 0.0,
-    w_win = 0.1, b = 0.0, w_loss = 0.1, dw_obs = 0.0, dw_bridge = 0.0,
+    gamma = 1.0, lambda = 1.0, alpha = 0.1, theta = 1.0, beta = 0.0,
+    w_win = 0.0, b = 0.0, w_loss = 0.1, dw_obs = 0.0, dw_bridge = 0.0,
     eta_obs = 0.001
 )
 bsup <- c (
-    gamma = 4.0, lambda = 5.0, alpha = 2.0, theta = 4.0, beta = 3.0,
+    gamma = 5.0, lambda = 5.0, alpha = 2.0, theta = 4.0, beta = 1.0,
     w_win = 2.0, b = 2.0, w_loss = 2.0, dw_obs = 0.2, dw_bridge = 0.2,
     eta_obs = 0.1
 )

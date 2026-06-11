@@ -31,7 +31,7 @@ mid_gamma     = 3.0
 mid_lambda    = 3.0
 mid_alpha     = 1.0
 mid_theta     = 2
-mid_beta      = 1.5
+mid_beta      = 0.5
 mid_w_win     = 1.0
 mid_b         = 1.0
 mid_w_loss    = 1.0
@@ -46,7 +46,7 @@ n_sobol_pop = 150  # population size (n) used during Sobol runs
 
 [gp]
 n_lhs         = 1000    # LHS design size
-n_rep_gp      = 5       # replicates per design point
+n_rep_gp      = 20      # replicates per design point
 top_n_gp      = 8       # top N from Sobol to include in GP
 top_phase     = 4       # number of top parameters for phase diagrams
 batch_size_gp = 10000   # GP prediction batch size (avoids covariance matrix overflow)

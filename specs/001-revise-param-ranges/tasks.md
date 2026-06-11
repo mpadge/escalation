@@ -32,18 +32,18 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   quantile cut points, ggplot aesthetics).
 
 ## T001-3: Update parameter ranges in gp_train.R
-- [ ] T001-3: In `analysis/gp_train.R`, update `all_binf` and `all_bsup` vectors:
+- [x] T001-3: In `analysis/gp_train.R`, update `all_binf` and `all_bsup` vectors:
   - `gamma`: binf 2.0 → 1.0, bsup 4.0 → 5.0
   - `beta`: bsup 3.0 → 1.0 (binf stays 0.0)
   - `w_win`: binf 0.1 → 0.0 (bsup stays 2.0)
   All other parameters unchanged.
 
 ## T001-4: Update parameter ranges in gp_phase.R
-- [ ] T001-4: In `analysis/gp_phase.R`, update `all_binf` and `all_bsup` vectors to match
+- [x] T001-4: In `analysis/gp_phase.R`, update `all_binf` and `all_bsup` vectors to match
   the same changes as T001-3 (gamma, beta, w_win). These two vectors appear near line 71.
 
 ## T001-5: Switch GP fitting from noise.var to nugget.estim
-- [ ] T001-5: In `analysis/gp_train.R`, in the `km()` call for `fit_psi` (around line 251),
+- [x] T001-5: In `analysis/gp_train.R`, in the `km()` call for `fit_psi` (around line 251),
   replace the `noise.var = noise_var_train` argument with `nugget.estim = TRUE`. Remove
   the `noise_var_train` construction lines above it (the `psi_sd^2` computation and
   the zero-guard `noise_var_train[...] <- 1e-6`) since they are no longer needed for
@@ -51,11 +51,11 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   unchanged.
 
 ## T001-6: Increase replicates per design point to 20
-- [ ] T001-6: In `defaults.toml`, change `n_rep_gp` from 5 to 20. This controls the number
+- [x] T001-6: In `defaults.toml`, change `n_rep_gp` from 5 to 20. This controls the number
   of simulation replicates run per LHS design point in `gp_train.R`.
 
 ## T001-7: Delete stale results to force full re-run
-- [ ] T001-7: Remove stale outputs from `results/` so that all scripts regenerate from
+- [x] T001-7: Remove stale outputs from `results/` so that all scripts regenerate from
   scratch with the new ranges and replicate count. Confirm with the user before deleting.
   Remove only the following:
   - All files directly in `results/` (CSV, RDS, etc.)

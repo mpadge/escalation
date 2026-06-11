@@ -107,13 +107,13 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   `specs/001-revise-param-ranges/results/gp.md` written in T001-10.
 
 ## T001-12: Run plots and report final outputs
-- [ ] T001-12: Instruct the user to run `make plots` (i.e., `Rscript analysis/plot.R`)
+- [x] T001-12: Instruct the user to run `make plots` (i.e., `Rscript analysis/plot.R`)
   and report back that plots have been generated in `results/plots/`. Do not run this
   script yourself. Confirm the expected files exist: one PNG per phase pair plus summary
   comparison plots. If any plot fails, report the error.
 
 ## T001-13: Write up Stage 1 results
-- [ ] T001-13: Once all scripts have run successfully, write a results summary analogous
+- [x] T001-13: Once all scripts have run successfully, write a results summary analogous
   to `specs/000-initial-build/results/summary.md` at
   `specs/001-revise-param-ranges/results/summary.md`. The write-up should: (1) compare
   the Sobol total-effect ranking against Stage 0, (2) confirm whether the GP collapse

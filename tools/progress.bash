@@ -53,30 +53,26 @@ now=$(date +%s)
 # use trimmed mean delta for rate and ETA.
 # Outputs two values: <mean_delta_float> <elapsed_int>
 # elapsed = mean_delta * done_n (pure computation estimate, no idle gap).
+# Pipeline: find(timestamps) | sort | awk(deltas) | sort | awk(IQR+mean)
+# Avoids O(n²) in-awk sort; sort -n uses the OS radix sort instead.
 stats=$(
-    ls -tr "$log_dir"/*.done 2>/dev/null \
-        | xargs stat -c '%Y' 2>/dev/null \
+    find "$log_dir" -maxdepth 1 -name '*.done' -printf '%T@\n' 2>/dev/null \
+        | sort -n \
+        | awk 'NR > 1 { printf "%.6f\n", $1 - prev } { prev = $1 }' \
         | sort -n \
         | awk -v done="$done_n" '
-    NR == 1 { prev = $1 }
-    NR > 1  { deltas[nd++] = $1 - prev; prev = $1 }
+    { d[++n] = $1 }
     END {
-        if (nd == 0) { printf "1.000000 %d\n", done; exit }
-        # insertion sort
-        for (i = 1; i < nd; i++) {
-            v = deltas[i]; j = i - 1
-            while (j >= 0 && deltas[j] > v) { deltas[j+1] = deltas[j]; j-- }
-            deltas[j+1] = v
-        }
-        q1  = deltas[int(nd * 0.25)]
-        q3  = deltas[int(nd * 0.75)]
+        if (n == 0) { printf "1.000000 %d\n", done; exit }
+        q1  = d[int(n * 0.25) + 1]
+        q3  = d[int(n * 0.75) + 1]
         iqr = q3 - q1
         lo  = q1 - 1.5 * iqr
         hi  = q3 + 1.5 * iqr
         sum = 0; cnt = 0
-        for (i = 0; i < nd; i++)
-            if (deltas[i] >= lo && deltas[i] <= hi) { sum += deltas[i]; cnt++ }
-        if (cnt == 0) { sum = deltas[int(nd / 2)]; cnt = 1 }   # fallback: median
+        for (i = 1; i <= n; i++)
+            if (d[i] >= lo && d[i] <= hi) { sum += d[i]; cnt++ }
+        if (cnt == 0) { sum = d[int(n / 2) + 1]; cnt = 1 }
         md = sum / cnt
         if (md < 1e-6) md = 1e-6
         printf "%.6f %d\n", md, int(md * done + 0.5)

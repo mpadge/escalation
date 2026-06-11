@@ -12,12 +12,6 @@ safe_clear_done_files <- function (log_dir, expected_n) {
         "Found {.val {n}} of {.val {expected_n}} expected .done files in \\
         {.file {log_dir}} — a previous run was interrupted."
     )
-    if (!interactive ()) {
-        cli_abort (
-            "Non-interactive session: cannot prompt. \\
-            Clean {.file {log_dir}} manually and re-run."
-        )
-    }
     response <- readline ("Overwrite partial results and re-run from scratch? [y/N] ")
     if (!tolower (trimws (response)) %in% c ("y", "yes")) {
         cli_abort ("Aborted. Clean {.file {log_dir}} manually and re-run.")

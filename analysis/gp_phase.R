@@ -123,7 +123,8 @@ run_emulator_sobol <- function (fit_psi, param_names, all_binf, all_bsup,
         df <- as.data.frame (matrix (NA_real_, n, p))
         colnames (df) <- param_names
         for (nm in param_names) {
-            df [[nm]] <- all_binf [nm] + (all_bsup [nm] - all_binf [nm]) * runif (n)
+            df [[nm]] <-
+                all_binf [nm] + (all_bsup [nm] - all_binf [nm]) * runif (n)
         }
         df
     }
@@ -180,11 +181,19 @@ dir.create (phase_dir, recursive = TRUE, showWarnings = FALSE)
 pars <- RcppTOML::parseTOML ("defaults.toml")
 
 all_binf <- setNames (
-    vapply (names (pars$ranges), function (nm) pars$ranges [[nm]] [1L], numeric (1)),
+    vapply (
+        names (pars$ranges),
+        function (nm) pars$ranges [[nm]] [1L],
+        numeric (1)
+    ),
     names (pars$ranges)
 )
 all_bsup <- setNames (
-    vapply (names (pars$ranges), function (nm) pars$ranges [[nm]] [2L], numeric (1)),
+    vapply (
+        names (pars$ranges),
+        function (nm) pars$ranges [[nm]] [2L],
+        numeric (1)
+    ),
     names (pars$ranges)
 )
 

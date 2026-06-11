@@ -81,7 +81,8 @@ compute_morris_indices <- function (m, design_full, param_names, results_dir) {
     raw <- read.csv (file.path (results_dir, "morris_raw.csv"))
     if (nrow (raw) != 2 * nrow (design_full)) {
         cli_alert_warning (
-            "Expected {.val {2 * nrow(design_full)}} rows, got {.val {nrow(raw)}}"
+            "Expected {.val {2 * nrow(design_full)}} rows, \\
+            got {.val {nrow(raw)}}"
         )
     }
     psi_vals <- raw$psi [seq (1, nrow (raw), by = 2)]
@@ -137,7 +138,7 @@ param_names <- c (
     "w_loss",    # loss cost (ratio r_loss_win = w_loss/w_win)
     "dw_obs",    # observer edge increment (with dw_coop=0.15: r_obs_coop)
     "dw_bridge", # bridge edge increment (with dw_sub=0.15: r_bridge_sub)
-    "eta_obs"    # observational learning rate (with eta=0.1: kappa = eta_obs/eta)
+    "eta_obs"    # obs. learning rate (with eta=0.1: # kappa = eta_obs/eta)
     # delta fixed at pars_s$delta — suppresses Psi monotonically; held out of
     # analyses
 )

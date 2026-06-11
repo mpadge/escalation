@@ -86,25 +86,35 @@ run_gp_binary <- function (binary, results_dir, log_dir, n_lhs, n_rep) {
     has_partial <- n_existing > 0L || n_done > 0L
 
     if (n_existing >= expected_rows) {
-        cli_alert_info ("{.file {out_file}} already complete; skipping binary run.")
+        cli_alert_info (
+            "{.file {out_file}} already complete; skipping binary run."
+        )
         return (invisible (NULL))
     }
 
     resume <- FALSE
     if (has_partial) {
         cli_alert_warning (col_yellow (
-            "Existing state: {.val {n_existing}}/{.val {expected_rows}} CSV rows, \\
-            {.val {n_done}} .done files."
+            "Existing state: {.val {n_existing}}/{.val {expected_rows}} \\
+            CSV rows, {.val {n_done}} .done files."
         ))
-        response <- tolower (trimws (readline ("Resume from checkpoint? [Y/n/restart] ")))
+        response <- tolower (trimws (readline (
+            "Resume from checkpoint? [Y/n/restart] "
+        )))
         if (response %in% c ("restart", "r")) {
             cli_alert_info ("Restarting from scratch...")
             if (file.exists (out_file)) chk <- file.remove (out_file)
-            old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
+            old_done <- list.files (
+                log_dir,
+                pattern = "\\.done$",
+                full.names = TRUE
+            )
             if (length (old_done) > 0L) chk <- file.remove (old_done)
         } else if (response %in% c ("", "y", "yes")) {
             resume <- TRUE
-            cli_alert_info ("Resuming from row {.val {n_existing / (n_rep * 2L) + 1L}}...")
+            cli_alert_info (
+                "Resuming from row {.val {n_existing / (n_rep * 2L) + 1L}}..."
+            )
         } else {
             cli_abort ("Aborted.")
         }
@@ -194,20 +204,20 @@ split_train_test <- function (gp_data, n_lhs, param_names) {
     )
 }
 
-fit_gps <- function (X_train, y_train, tau_train, results_dir) {
-    p <- ncol (X_train)
+fit_gps <- function (x_train, y_train, tau_train, results_dir) {
+    p <- ncol (x_train)
     cli_alert_info (
-        "Fitting GP on Psi (n_train={.val {nrow(X_train)}}, p={.val {p}})..."
+        "Fitting GP on Psi (n_train={.val {nrow(x_train)}}, p={.val {p}})..."
     )
     cli_alert_info ("DiceKriging Cholesky is O(n^3) — may take several minutes")
     fit_psi <- km (
-        formula = ~1, design = X_train, response = y_train,
+        formula = ~1, design = x_train, response = y_train,
         covtype = "matern5_2", nugget.estim = TRUE,
         control = list (trace = FALSE)
     )
     cli_alert_info ("Fitting GP on tau_psi...")
     fit_tau <- km (
-        formula = ~1, design = X_train, response = tau_train,
+        formula = ~1, design = x_train, response = tau_train,
         covtype = "matern5_2", nugget.estim = TRUE,
         control = list (trace = FALSE)
     )
@@ -280,7 +290,8 @@ if (!dir.exists (results_dir)) {
     )
 }
 
-# delta fixed at pars_s$delta — suppresses Psi monotonically; held out of analyses
+# delta fixed at pars_s$delta — suppresses Psi monotonically; held out of
+# analyses
 all_param_names <- c (
     "gamma", "lambda", "alpha", "theta", "beta",
     "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs"
@@ -292,11 +303,19 @@ pars_s <- pars$structural
 pars_a <- pars$analysis
 
 all_binf <- setNames (
-    vapply (all_param_names, function (nm) pars$ranges [[nm]] [1L], numeric (1)),
+    vapply (
+        all_param_names,
+        function (nm) pars$ranges [[nm]] [1L],
+        numeric (1)
+    ),
     all_param_names
 )
 all_bsup <- setNames (
-    vapply (all_param_names, function (nm) pars$ranges [[nm]] [2L], numeric (1)),
+    vapply (
+        all_param_names,
+        function (nm) pars$ranges [[nm]] [2L],
+        numeric (1)
+    ),
     all_param_names
 )
 
@@ -366,6 +385,8 @@ gp_data <- aggregate_replicates (
 )
 cli_inform ("")
 splits <- split_train_test (gp_data, N_LHS, param_names)
-fits   <- fit_gps (splits$X_train, splits$y_train, splits$tau_train, results_dir)
+fits   <- fit_gps (
+    splits$X_train, splits$y_train, splits$tau_train, results_dir
+)
 validate_gps (fits$fit_psi, fits$fit_tau, splits, results_dir)
 extract_hyperparams (fits$fit_psi, param_names, results_dir)

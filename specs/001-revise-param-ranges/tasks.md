@@ -86,7 +86,7 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   for GP emulation (which parameters to carry forward and phase diagram priority).
 
 ## T001-10: Run GP training and report hyperparameters
-- [ ] T001-10: Instruct the user to run `make gp` (i.e., `Rscript analysis/gp_train.R`
+- [x] T001-10: Instruct the user to run `make gp` (i.e., `Rscript analysis/gp_train.R`
   followed by `Rscript analysis/gp_phase.R`) and report back the console output including
   the ARD length scales, validation RMSE, and coverage. Do not run this script yourself.
   Verify that the nugget is non-zero (confirming that `nugget.estim = TRUE` is working),
@@ -97,7 +97,7 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   nugget estimates, RMSE, coverage, and any notable differences versus Stage 0.
 
 ## T001-11: Run GP phase diagrams and report results
-- [ ] T001-11: If `make gp` was not run as a unit in T001-10, instruct the user to run
+- [x] T001-11: If `make gp` was not run as a unit in T001-10, instruct the user to run
   `Rscript analysis/gp_phase.R` directly. Report back the console output and a sample of
   the phase CSV files in `results/gp_phase/`. Do not run this script yourself. Verify
   that phase CSV files no longer show constant `psi=0.078` (the prior-mean collapse seen

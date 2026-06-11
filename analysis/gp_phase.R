@@ -12,7 +12,7 @@
 
 library (DiceKriging)
 library (sensitivity)
-library (dplyr)
+library (dplyr, warn.conflicts = FALSE)
 library (cli)
 library (RcppTOML)
 
@@ -87,10 +87,12 @@ build_phase_diagrams <- function (top_params, param_names, param_medians,
         grid   <- make_phase_grid (p_a, p_b)
         x_grid <- grid [, param_names, drop = FALSE]
 
-        pred_psi <- predict (fit_psi, newdata = x_grid, type = "UK",
-                             checkNames = FALSE)
-        pred_tau <- predict (fit_tau, newdata = x_grid, type = "UK",
-                             checkNames = FALSE)
+        pred_psi <- predict (fit_psi,
+                             newdata = x_grid [, colnames (fit_psi@X), drop = FALSE],
+                             type = "UK", checkNames = TRUE)
+        pred_tau <- predict (fit_tau,
+                             newdata = x_grid [, colnames (fit_tau@X), drop = FALSE],
+                             type = "UK", checkNames = TRUE)
 
         phase_df           <- grid [, c (p_a, p_b)]
         phase_df$psi_mean  <- pred_psi$mean
@@ -135,16 +137,20 @@ run_emulator_sobol <- function (fit_psi, param_names, all_binf, all_bsup,
 
     # Evaluate in batches: n_test × n_train covariance overflows 32-bit int
     # above ~14M rows.
-    n_pred <- nrow (s_gp$X)
-    psi_gp <- numeric (n_pred)
+    n_pred    <- nrow (s_gp$X)
+    n_batches <- ceiling (n_pred / batch_size)
+    psi_gp    <- numeric (n_pred)
+    cli_progress_bar ("Predicting batches", total = n_batches)
     for (start in seq (1L, n_pred, by = batch_size)) {
         end <- min (start + batch_size - 1L, n_pred)
         psi_gp [start:end] <- predict (
             fit_psi,
-            newdata = s_gp$X [start:end, param_names, drop = FALSE],
-            type = "SK", checkNames = FALSE
+            newdata = s_gp$X [start:end, colnames (fit_psi@X), drop = FALSE],
+            type = "SK", checkNames = TRUE
         )$mean
+        cli_progress_update ()
     }
+    cli_progress_done ()
     s_gp <- tell (s_gp, psi_gp)
 
     sobol_gp <- data.frame (
@@ -157,7 +163,7 @@ run_emulator_sobol <- function (fit_psi, param_names, all_binf, all_bsup,
                row.names = FALSE)
     cli_alert_info ("Emulator-based Sobol indices (ranked by ST):")
     print (sobol_gp, digits = 3)
-    cli_alert_info ("Wrote {.file sobol_gp.csv}")
+    cli_alert_success (col_green ("Wrote {.file sobol_gp.csv}"))
     invisible (sobol_gp)
 }
 

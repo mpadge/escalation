@@ -18,6 +18,8 @@ library (RcppTOML)
 
 set.seed (42)
 
+cli_h1 (col_yellow ("GP phase diagrams"))
+
 results_dir <- "results"
 if (!dir.exists (results_dir)) {
     cli_abort ("Output directory {.file {results_dir}} not found \\
@@ -46,6 +48,7 @@ param_rows <- param_rows [order (param_rows$ell), ]
 param_names <- as.character (param_rows$param)
 p <- length (param_names)
 
+cli_h3 (col_yellow ("Parameters"))
 cli_alert_info (col_yellow (
     "Parameters ranked by GP ARD length scale (most sensitive first):"
 ))
@@ -64,6 +67,8 @@ print (round (param_medians, 3))
 # build diagrams for all pairs of the top-4
 TOP_PHASE <- min (pars$gp$top_phase, p) # nolint
 top_params <- param_names [seq_len (TOP_PHASE)]
+cli_inform ("")
+cli_h3 (col_yellow ("Construction"))
 cli_alert_info (
     "Building phase diagrams for: {.field {top_params}}"
 )
@@ -142,6 +147,8 @@ for (pair in pairs) {
 # ---------------------------------------------------------------------------
 # Emulator-based Sobol via Saltelli samples (cheap: only GP evaluations)
 # ---------------------------------------------------------------------------
+cli_inform ("")
+cli_h3 (col_yellow ("Emulation"))
 n_sobol <- pars$gp$n_sobol_gp
 cli_alert_info ("Running emulator-based Sobol (n={n_sobol})...")
 

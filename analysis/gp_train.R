@@ -15,6 +15,8 @@ library (cli)
 
 set.seed (42)
 
+cli_h1 (col_yellow ("GP training"))
+
 results_dir <- "results"
 if (!dir.exists (results_dir)) {
     cli_abort (
@@ -80,6 +82,7 @@ if (file.exists (file.path (results_dir, "sobol_results.csv"))) {
         "No prior results; using all {length(param_names)} parameters"
     )
 }
+cli_inform ("")
 p <- length (param_names)
 
 binf <- all_binf [param_names]
@@ -92,6 +95,7 @@ old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
 if (length (old_done) > 0) {
     chk <- file.remove (old_done)
 }
+cli_h2 ("design and progress data")
 cli_alert_info ("Progress files will be written to {.file {log_dir}}")
 
 fixed <- list (
@@ -154,10 +158,12 @@ write.csv (
     row.names = FALSE
 )
 cli_alert_info ("Wrote {.file design_lhs.csv}")
+cli_inform ("")
 
 # ---------------------------------------------------------------------------
 # Run Rust gp-train subcommand (R replicates per design point)
 # ---------------------------------------------------------------------------
+cli_h2 (col_yellow ("Run 'gp-train' Rust binary"))
 binary <- "./target/release/escalation"
 n_rep <- as.integer (if (!is.null (pars$gp$n_rep_gp)) pars$gp$n_rep_gp else 5L)
 if (!file.exists (binary)) {
@@ -238,10 +244,12 @@ if (!file.exists (out_file)) {
     ))
     gp_data <- read.csv (out_file)
 }
+cli_inform ("")
 
 # ---------------------------------------------------------------------------
 # 80/20 train/hold-out split stratified by psi_mean quintile
 # ---------------------------------------------------------------------------
+cli_h3 (col_yellow ("Post-processing"))
 gp_data$quintile <- cut (gp_data$psi_mean,
     breaks = quantile (gp_data$psi_mean,
         probs = seq (0, 1, 0.2), na.rm = TRUE

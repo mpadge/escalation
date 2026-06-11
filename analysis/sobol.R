@@ -7,9 +7,10 @@
 # Prerequisites: install.packages(c("sensitivity", "processx", "dplyr", "cli"))
 # Run from project root: Rscript analysis/sobol.R
 
-library (sensitivity)
+Sys.setenv(`_R_S3_METHOD_REGISTRATION_NOTE_OVERWRITES_` = "false")
+library (sensitivity) # Overrides s3 method and is always noisy
 library (processx)
-library (dplyr)
+library (dplyr, warn.conflicts = FALSE)
 library (RcppTOML)
 library (cli)
 
@@ -135,7 +136,7 @@ make_design <- function (n, pnames, lo, hi) {
 x1 <- make_design (n_sobol, param_names, binf, bsup)
 x2 <- make_design (n_sobol, param_names, binf, bsup)
 
-s_obj <- sobol2007 (model = NULL, x1 = x1, x2 = x2, nboot = 100)
+s_obj <- sobol2007 (model = NULL, X1 = x1, X2 = x2, nboot = 100)
 n_expected <- nrow (s_obj$X)
 cli_alert_info ("Saltelli design has {.value {n_expected}} rows")
 cli_alert_info (

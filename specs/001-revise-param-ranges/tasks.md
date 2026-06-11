@@ -65,7 +65,7 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   be touched — they hold archived results from prior stages.
 
 ## T001-8: Run Morris screening and report output
-- [ ] T001-8: Instruct the user to run `make morris` from the project root
+- [x] T001-8: Instruct the user to run `make morris` from the project root
   (i.e., `Rscript analysis/morris.R`) and report the console output back. Do not run
   this script yourself. Verify that the script completes without error, that
   `results/morris_results.csv` exists, and that the top-ranked parameters match

@@ -236,7 +236,6 @@ fit_psi <- km (
     design = X_train,
     response = y_train,
     covtype = "matern5_2",
-    nugget.estim = TRUE,
     noise.var = noise_var_train,
     control = list (trace = FALSE)
 )
@@ -283,9 +282,9 @@ cli_alert_info (
 # ---------------------------------------------------------------------------
 # Hyperparameters: ARD length scales and output variance
 # ---------------------------------------------------------------------------
-ell <- coef.cov (fit_psi) # ARD length scales (one per dimension)
-sigma2 <- coef.var (fit_psi) # output variance
-nugget <- fit_psi@covariance@nugget
+ell <- fit_psi@covariance@range.val  # ARD length scales (one per dimension)
+sigma2 <- fit_psi@covariance@sd2     # output variance
+nugget <- fit_psi@covariance@nugget  # 0 when noise.var supplied instead of nugget.estim
 
 hyperparams <- data.frame (
     param = param_names,

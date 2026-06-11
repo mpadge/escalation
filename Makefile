@@ -1,6 +1,6 @@
 #!/usr/bin/make
 
-.PHONY: help build release test clean morris sobol gp validate status progress kill plots
+.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
@@ -55,3 +55,6 @@ clean: ## Remove build artefacts and generated results
 	rm -f results/*.csv results/*.rds
 	rm -rf results/gp_phase results/plots
 	rm -rf /tmp/escalation
+
+archive: ## Move current results into results/<current-specs-phase>/
+	@bash tools/archive.bash

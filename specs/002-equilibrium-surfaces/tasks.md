@@ -7,7 +7,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
 # Tasks: equilibrium-surfaces
 
 ## T002-1: Write analysis/gp_train2.R
-- [ ] T002-1: Write a new script `analysis/gp_train2.R` that trains two GP emulators on the
+- [x] T002-1: Write a new script `analysis/gp_train2.R` that trains two GP emulators on the
   absolute equilibrium escalation surfaces from Stage 1 data. The script must:
   1. Read `results/gp_train_raw.csv` (which contains paired rows: mu0=0.4 and mu0=0.6 for
      each seed × design point, with `mean_epsilon_final` as the key column).
@@ -29,7 +29,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
      `condition` (lo/hi), `param`, `ell`, `sigma2`, `nugget`, `rmse`, `coverage`.
 
 ## T002-2: Add Makefile gp2 target
-- [ ] T002-2: Add a `gp2` target to the `Makefile` that runs `Rscript analysis/gp_train2.R`.
+- [x] T002-2: Add a `gp2` target to the `Makefile` that runs `Rscript analysis/gp_train2.R`.
   Add it to `.PHONY` and give it a `##` comment: `## Train two-GP emulators on absolute
   escalation surfaces (Stage 2)`. Do not modify the existing `gp` target.
 

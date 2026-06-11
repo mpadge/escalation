@@ -34,7 +34,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
   escalation surfaces (Stage 2)`. Do not modify the existing `gp` target.
 
 ## T002-3: Run gp2 and write results/gp.md
-- [ ] T002-3: Instruct the user to run `make gp2` and report back the console output including
+- [x] T002-3: Instruct the user to run `make gp2` and report back the console output including
   ARD length scales, RMSE, and coverage for both GPs. Do not run this yourself. Verify:
   (a) both `results/gp_lo.rds` and `results/gp_hi.rds` exist; (b) nugget > 0 for both;
   (c) no ARD length scale is degenerate (< 0.05 relative to its parameter range). Once
@@ -46,7 +46,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
   - Any notable differences between the lo and hi surfaces implied by the hyperparameters
 
 ## T002-4: Write analysis/gp_phase2.R
-- [ ] T002-4: Write a new script `analysis/gp_phase2.R` that generates phase diagrams for
+- [x] T002-4: Write a new script `analysis/gp_phase2.R` that generates phase diagrams for
   three surfaces: E_lo, E_hi, and Ψ = (E_hi − E_lo) / 0.2. The script must:
   1. Load `results/gp_lo.rds` and `results/gp_hi.rds`.
   2. Read parameter bounds from `defaults.toml` (`ranges` section) for alpha, gamma,
@@ -71,7 +71,7 @@ git_hash: 54bf6f4b9ca33dcb727c260d7ad6d3dd4b864188
      Ψ > 1, and the maximum Ψ observed across all pairs.
 
 ## T002-5: Add Makefile gp2_phase target
-- [ ] T002-5: Add a `gp2_phase` target to the `Makefile` that runs
+- [x] T002-5: Add a `gp2_phase` target to the `Makefile` that runs
   `Rscript analysis/gp_phase2.R`. Add to `.PHONY` with comment: `## Generate two-GP
   phase diagrams for E_lo, E_hi, and Psi surfaces (Stage 2)`. Do not modify existing
   targets.

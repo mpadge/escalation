@@ -29,15 +29,15 @@ echo ""
 
 next=""
 
-file_status "binary built"        "target/release/escalation"   || { next="make release";       }
-file_status "morris screening"    "morris_results.csv"          || { next=${next:-"make morris"}; }
-file_status "sobol analysis"      "sobol_results.csv"           || { next=${next:-"make sobol"};  }
+file_status "binary built"        "target/release/escalation"           || { next="make release";       }
+file_status "morris screening"    "results/morris_results.csv"          || { next=${next:-"make morris"}; }
+file_status "sobol analysis"      "results/sobol_results.csv"           || { next=${next:-"make sobol"};  }
 
 # gp_train and gp_phase are both launched by 'make gp'; distinguish partial completion
-if [ -f "gp_psi.rds" ] && [ -f "gp_validation.csv" ]; then
+if [ -f "results/gp_psi.rds" ] && [ -f "results/gp_validation.csv" ]; then
     echo "  $X gp emulation (training + validation)"
 else
-    if [ -f "gp_train_raw.csv" ] && [ ! -f "gp_psi.rds" ]; then
+    if [ -f "results/gp_train_raw.csv" ] && [ ! -f "results/gp_psi.rds" ]; then
         echo "  $O gp emulation  (simulations done, GP fitting incomplete — re-run make gp)"
     else
         echo "  $O gp emulation"
@@ -45,22 +45,22 @@ else
     next=${next:-"make gp"}
 fi
 
-if [ -f "sobol_gp.csv" ] && ls phase_*.csv >/dev/null 2>&1; then
+if [ -f "results/sobol_gp.csv" ] && ls results/gp_phase/phase_*.csv >/dev/null 2>&1; then
     echo "  $X phase diagrams + emulator Sobol"
 else
-    if [ -f "gp_psi.rds" ]; then
-        echo "  $O phase diagrams + emulator Sobol  (GP ready — run gp_phase.R)"
-        next=${next:-"Rscript analysis/gp_phase.R"}
+    if [ -f "results/gp_psi.rds" ]; then
+        echo "  $O phase diagrams + emulator Sobol  (GP ready — run make gp)"
+        next=${next:-"make gp"}
     else
         echo "  $O phase diagrams + emulator Sobol"
     fi
 fi
 
-if ls results/plots/*.png >/dev/null 2>&1 || ls *.png >/dev/null 2>&1; then
+if ls results/plots/*.png >/dev/null 2>&1; then
     echo "  $X plots"
 else
     echo "  $O plots"
-    if [ -f "sobol_gp.csv" ]; then
+    if [ -f "results/sobol_gp.csv" ]; then
         next=${next:-"make plots"}
     fi
 fi

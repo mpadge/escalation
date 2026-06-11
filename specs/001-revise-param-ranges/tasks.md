@@ -73,7 +73,7 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   should rank lower given its narrowed range).
 
 ## T001-9: Run Sobol decomposition and report output
-- [ ] T001-9: Instruct the user to run `make sobol` (i.e., `Rscript analysis/sobol.R`)
+- [x] T001-9: Instruct the user to run `make sobol` (i.e., `Rscript analysis/sobol.R`)
   and report back the console output and the contents of `results/sobol_results.csv`. Do
   not run this script yourself. Check whether the total-effect ranking is consistent with
   Stage 0 (alpha leading, dw_obs and eta_obs prominent). Note any substantial changes in

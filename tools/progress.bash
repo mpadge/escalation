@@ -9,9 +9,11 @@ fmt_duration() {
     fi
 }
 
-cmd=$(pgrep -af 'target/release/escalation' 2>/dev/null | grep -v grep | head -1 | sed 's/^[0-9]* //')
+cmd=$(pgrep -af 'target/release/escalation' 2>/dev/null | grep -v grep | head -1 | sed 's/^[0-9]* //' || true)
 if [ -z "$cmd" ]; then
     echo "No escalation process running."
+    echo ""
+    make --no-print-directory status
     exit 0
 fi
 

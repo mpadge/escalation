@@ -7,19 +7,19 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
 # Tasks: revise-param-ranges
 
 ## T001-1: Convert defaults.json to defaults.toml
-- [ ] T001-1: Convert `defaults.json` to `defaults.toml` using proper TOML structure with
+- [x] T001-1: Convert `defaults.json` to `defaults.toml` using proper TOML structure with
   inline comments. Group parameters into labelled sections (e.g. `[structural]`,
   `[analysis]`, `[sobol]`, `[gp]`). Delete `defaults.json` once the TOML file is
   written. Then find every `jsonlite::fromJSON` call that reads `defaults.json` across
   all `analysis/*.R` scripts and replace it with `RcppTOML::parseTOML("defaults.toml")`.
   Add `library(RcppTOML)` where needed (or use `RcppTOML::parseTOML` without loading).
   After all edits, instruct the user to run a quick smoke-test in R:
-  `d <- RcppTOML::parseTOML("defaults.toml"); print(d$n); print(d$n_rep_gp)` and
+  `pars <- RcppTOML::parseTOML("defaults.toml"); print(pars$analysis$n); print(pars$gp$n_rep_gp)` and
   report back that both values are read correctly as integers (200 and 20 respectively —
   noting that n_rep_gp will be updated in T001-6).
 
 ## T001-2: Audit analysis/*.R scripts and move hardcoded parameters to defaults.toml
-- [ ] T001-2: Read through all files in `analysis/` and identify any numeric constants
+- [x] T001-2: Read through all files in `analysis/` and identify any numeric constants
   that represent model parameters or analysis settings that are currently hardcoded
   rather than read from `defaults.toml`. Candidates to look for: `t_max`, `N_LHS`,
   `TOP_N`, `TOP_PHASE`, `n_sobol`, batch sizes, mu0 initial condition, fixed
@@ -27,7 +27,7 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   `delta_monotone.R`, and any similar magic numbers. For each candidate, decide
   whether it belongs in `defaults.toml` (i.e. it is a setting a user might legitimately
   want to tune without editing R code). Move confirmed candidates to an appropriate
-  section in `defaults.toml` and update the R scripts to read them via `d$<key>`.
+  section in `defaults.toml` and update the R scripts to read them via `pars$<section>$<key>`.
   Do not move constants that are genuinely internal to the analysis logic (e.g.
   quantile cut points, ggplot aesthetics).
 
@@ -55,10 +55,14 @@ git_hash: 0b12a019a66c1961742f1e04a27c63437f4b6d5a
   of simulation replicates run per LHS design point in `gp_train.R`.
 
 ## T001-7: Delete stale results to force full re-run
-- [ ] T001-7: Delete the `results/` directory at the project root so that all scripts
-  regenerate their outputs from scratch with the new ranges and replicate count.
-  Confirm with the user before deleting. The files in `specs/000-initial-build/results/`
-  must NOT be touched — those are the archived Stage 0 results.
+- [ ] T001-7: Remove stale outputs from `results/` so that all scripts regenerate from
+  scratch with the new ranges and replicate count. Confirm with the user before deleting.
+  Remove only the following:
+  - All files directly in `results/` (CSV, RDS, etc.)
+  - The subdirectory `results/gp_phase/` and all its contents
+  - The subdirectory `results/plots/` and all its contents
+  Any other subdirectories in `results/` (e.g. `results/000-initial-build/`) must NOT
+  be touched — they hold archived results from prior stages.
 
 ## T001-8: Run Morris screening and report output
 - [ ] T001-8: Instruct the user to run `Rscript analysis/morris.R` from the project root

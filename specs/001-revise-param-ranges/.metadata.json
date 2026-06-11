@@ -1,15 +1,16 @@
 {
   "agents": [
-    "claude-sonnet-4-6"
+    "claude-sonnet-4-6",
+    "unknown"
   ],
   "created": "2026-06-11T10:01:13Z",
-  "last_updated": "2026-06-11T10:30:40Z",
-  "last_session_id": "fb27deab-3bf0-4d7c-ae2f-0dff72216330",
-  "sessions": 1,
-  "input_tokens": 16041017,
-  "output_tokens": 299377,
-  "user_word_count": 3483,
-  "lines_added": 503,
-  "lines_deleted": 27,
-  "files_changed": 8
+  "last_updated": "2026-06-11T11:03:22Z",
+  "last_session_id": "43e016fd-acba-4871-b000-5581c428046d",
+  "sessions": 2,
+  "input_tokens": 21613515,
+  "output_tokens": 511019,
+  "user_word_count": 3957,
+  "lines_added": 2768,
+  "lines_deleted": 41,
+  "files_changed": 23
 }

@@ -1,0 +1,57 @@
+[structural]
+# Fixed at central values for sensitivity analysis; not varied in Morris/Sobol/GP.
+w_min         = 0.05
+w_max         = 3.0
+sigma_drift   = 0.025
+rho_contested = 0.55
+eta_trauma    = 0.1
+delta         = 0.01
+log_dir       = "/tmp/escalation"
+
+[analysis]
+# Fixed in the analysis layer; not in the free-parameter set.
+n             = 200
+mu0           = 0.5
+sigma0        = 0.25
+c             = 0.5
+e             = 0.5
+dw_coop       = 0.15
+dw_sub        = 0.15
+dw_excl       = 0.1
+eta           = 0.1
+delta_direct  = 0.05
+delta_exploit = 0.05
+
+t_max_morris  = 2000  # simulation steps for Morris OAT screening
+t_max_sobol   = 3000  # simulation steps for Sobol analysis
+t_max_gp      = 5000  # simulation steps for GP training
+
+# Midpoints for fixing non-focal parameters in Sobol and GP analyses.
+mid_gamma     = 3.0
+mid_lambda    = 3.0
+mid_alpha     = 1.0
+mid_theta     = 2
+mid_beta      = 1.5
+mid_w_win     = 1.0
+mid_b         = 1.0
+mid_w_loss    = 1.0
+mid_dw_obs    = 0.1
+mid_dw_bridge = 0.1
+mid_eta_obs   = 0.05
+
+[sobol]
+top_n       = 6    # top N from Morris to include in Sobol
+n_sobol     = 1000 # Saltelli sample size
+n_sobol_pop = 150  # population size (n) used during Sobol runs
+
+[gp]
+n_lhs         = 1000    # LHS design size
+n_rep_gp      = 5       # replicates per design point
+top_n_gp      = 8       # top N from Sobol to include in GP
+top_phase     = 4       # number of top parameters for phase diagrams
+batch_size_gp = 10000   # GP prediction batch size (avoids covariance matrix overflow)
+n_sobol_gp    = 1000000 # emulator-based Sobol sample size
+
+[delta_monotone]
+delta_tol_floor  = 0.01 # minimum tolerance for monotonicity check
+delta_tol_factor = 0.05 # fraction of Psi range used as tolerance

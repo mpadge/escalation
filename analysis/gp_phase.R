@@ -14,6 +14,7 @@ library (DiceKriging)
 library (sensitivity)
 library (dplyr)
 library (cli)
+library (RcppTOML)
 
 set.seed (42)
 
@@ -25,6 +26,8 @@ if (!dir.exists (results_dir)) {
 }
 phase_dir <- file.path (results_dir, "gp_phase")
 dir.create (phase_dir, recursive = TRUE, showWarnings = FALSE)
+
+pars <- RcppTOML::parseTOML ("defaults.toml")
 
 # ---------------------------------------------------------------------------
 # Load fitted GPs and identify top parameters
@@ -59,7 +62,7 @@ print (round (param_medians, 3))
 
 # Top parameters for phase diagrams
 # build diagrams for all pairs of the top-4
-TOP_PHASE <- min (4, p) # nolint
+TOP_PHASE <- min (pars$gp$top_phase, p) # nolint
 top_params <- param_names [seq_len (TOP_PHASE)]
 cli_alert_info (
     "Building phase diagrams for: {.field {top_params}}"
@@ -131,10 +134,10 @@ for (pair in pairs) {
 }
 
 # ---------------------------------------------------------------------------
-# Emulator-based Sobol via 10^6 Saltelli samples (cheap: only GP evaluations)
+# Emulator-based Sobol via Saltelli samples (cheap: only GP evaluations)
 # ---------------------------------------------------------------------------
-cli_alert_info ("Running emulator-based Sobol (n=10^6)...")
-n_sobol <- 1e6
+n_sobol <- pars$gp$n_sobol_gp
+cli_alert_info ("Running emulator-based Sobol (n={n_sobol})...")
 
 make_sobol_sample <- function (n) {
     df <- as.data.frame (matrix (NA_real_, n, p))
@@ -152,7 +155,7 @@ s_gp <- sobol2007 (model = NULL, X1 = x1_gp, X2 = x2_gp, nboot = 0)
 # Evaluate GP mean on full Saltelli design in batches: the n_test × n_train
 # covariance matrix overflows a 32-bit integer when n_test > ~14M rows.
 n_pred <- nrow (s_gp$X)
-batch_size <- 1e4L
+batch_size <- as.integer (pars$gp$batch_size_gp)
 psi_gp <- numeric (n_pred)
 for (start in seq (1L, n_pred, by = batch_size)) {
     end <- min (start + batch_size - 1L, n_pred)

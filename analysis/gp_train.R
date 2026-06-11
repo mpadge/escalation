@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # GP emulator training for the escalation model.
-# Generates an LHS design, runs the Rust gp-train subcommand for R=5 replicates,
+# Generates an LHS design, runs the Rust gp-train subcommand for R replicates,
 # aggregates replicates, fits Matern-5/2 ARD GPs on Psi and tau_psi via
 # DiceKriging, validates on hold-out, and saves model objects + diagnostics.
 #
@@ -10,7 +10,7 @@
 library (lhs)
 library (DiceKriging)
 library (dplyr, warn.conflicts = FALSE)
-library (jsonlite)
+library (RcppTOML)
 library (cli)
 
 set.seed (42)
@@ -26,7 +26,7 @@ if (!dir.exists (results_dir)) {
 # ---------------------------------------------------------------------------
 # Parameter space: use Sobol-ranked top parameters where available
 # ---------------------------------------------------------------------------
-# delta fixed at d$delta — suppresses Psi monotonically; held out of analyses
+# delta fixed at pars_s$delta — suppresses Psi monotonically; held out of analyses
 all_param_names <- c (
     "gamma", "lambda", "alpha", "theta", "beta",
     "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs"
@@ -45,8 +45,12 @@ all_bsup <- c (
 # fixed structural params excluded from all analyses
 FIXED_EXCLUDE <- c ("delta") # nolint
 
+pars <- RcppTOML::parseTOML ("defaults.toml")
+pars_s <- pars$structural
+pars_a <- pars$analysis
+
 # parameters to include in GP (more than Sobol to preserve coverage)
-TOP_N <- 8 # #nolint
+TOP_N <- pars$gp$top_n_gp # nolint
 if (file.exists (file.path (results_dir, "sobol_results.csv"))) {
     sobol_df <- read.csv (file.path (results_dir, "sobol_results.csv"))
     sobol_df <- sobol_df [!(sobol_df$param %in% FIXED_EXCLUDE), ]
@@ -74,34 +78,35 @@ p <- length (param_names)
 binf <- all_binf [param_names]
 bsup <- all_bsup [param_names]
 
-# Structural constants from defaults.json; inactive free params at midpoints.
-d <- jsonlite::fromJSON ("defaults.json")
-log_dir <- if (!is.null (d$log_dir)) d$log_dir else "/tmp/escalation"
+# Structural constants from defaults.toml; inactive free params at midpoints.
+log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
 old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
 if (length (old_done) > 0) file.remove (old_done)
 cli_alert_info ("Progress files will be written to {.file {log_dir}}")
 
 fixed <- list (
-    n = as.integer (d$n), mu0 = 0.5, sigma0 = d$sigma0,
-    c = d$c, e = d$e,
-    dw_coop = d$dw_coop, dw_sub = d$dw_sub, dw_excl = d$dw_excl,
-    eta = d$eta,
-    delta_direct = d$delta_direct, delta_exploit = d$delta_exploit,
-    w_min = d$w_min, w_max = d$w_max,
-    sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
-    eta_trauma = d$eta_trauma,
-    delta = d$delta,
-    t_max = 5000L,
-    gamma = 3.0, lambda = 3.0, alpha = 1.0, theta = 2L, beta = 1.5,
-    w_win = 1.0, b = 1.0, w_loss = 1.0, dw_obs = 0.1, dw_bridge = 0.1,
-    eta_obs = 0.05
+    n = as.integer (pars_a$n), mu0 = pars_a$mu0, sigma0 = pars_a$sigma0,
+    c = pars_a$c, e = pars_a$e,
+    dw_coop = pars_a$dw_coop, dw_sub = pars_a$dw_sub, dw_excl = pars_a$dw_excl,
+    eta = pars_a$eta,
+    delta_direct = pars_a$delta_direct, delta_exploit = pars_a$delta_exploit,
+    w_min = pars_s$w_min, w_max = pars_s$w_max,
+    sigma_drift = pars_s$sigma_drift, rho_contested = pars_s$rho_contested,
+    eta_trauma = pars_s$eta_trauma,
+    delta = pars_s$delta,
+    t_max = as.integer (pars_a$t_max_gp),
+    gamma = pars_a$mid_gamma, lambda = pars_a$mid_lambda, alpha = pars_a$mid_alpha,
+    theta = as.integer (pars_a$mid_theta), beta = pars_a$mid_beta,
+    w_win = pars_a$mid_w_win, b = pars_a$mid_b, w_loss = pars_a$mid_w_loss,
+    dw_obs = pars_a$mid_dw_obs, dw_bridge = pars_a$mid_dw_bridge,
+    eta_obs = pars_a$mid_eta_obs
 )
 
 # ---------------------------------------------------------------------------
 # LHS design
 # ---------------------------------------------------------------------------
-N_LHS <- as.integer (if (!is.null (d$n_lhs)) d$n_lhs else 1000L) # nolint
+N_LHS <- as.integer (if (!is.null (pars$gp$n_lhs)) pars$gp$n_lhs else 1000L) # nolint
 cli_alert_info ("Generating LHS design (N={.val {N_LHS}}, p={.val {p}})...")
 lhs_unit <- maximinLHS (N_LHS, p)
 design_scaled <- as.data.frame (lhs_unit)
@@ -128,10 +133,10 @@ write.csv (
 cli_alert_info ("Wrote {.file design_lhs.csv}")
 
 # ---------------------------------------------------------------------------
-# Run Rust gp-train subcommand (5 replicates per design point)
+# Run Rust gp-train subcommand (R replicates per design point)
 # ---------------------------------------------------------------------------
 binary <- "./target/release/escalation"
-n_rep <- as.integer (if (!is.null (d$n_rep_gp)) d$n_rep_gp else 5L)
+n_rep <- as.integer (if (!is.null (pars$gp$n_rep_gp)) pars$gp$n_rep_gp else 5L)
 if (!file.exists (binary)) {
     cli_abort ("Binary not found — run 'cargo build --release'")
 }
@@ -167,7 +172,7 @@ if (!file.exists (out_file)) {
 }
 
 # ---------------------------------------------------------------------------
-# Aggregate R=5 replicates per design point
+# Aggregate replicates per design point
 # ---------------------------------------------------------------------------
 raw <- read.csv (file.path (results_dir, "gp_train_raw.csv"))
 
@@ -245,15 +250,12 @@ cli_alert_info (
 )
 cli_alert_info ("DiceKriging Cholesky is O(n^3) — may take several minutes")
 
-noise_var_train <- gp_data$psi_sd [train_idx]^2
-noise_var_train [noise_var_train == 0] <- 1e-6 # avoid zero noise
-
 fit_psi <- km (
     formula = ~1,
     design = X_train,
     response = y_train,
     covtype = "matern5_2",
-    noise.var = noise_var_train,
+    nugget.estim = TRUE,
     control = list (trace = FALSE)
 )
 
@@ -306,7 +308,6 @@ cli_alert_info (
 ell <- fit_psi@covariance@range.val  # ARD length scales (one per dimension)
 sigma2 <- fit_psi@covariance@sd2     # output variance
 nugget <- fit_psi@covariance@nugget
-# nugget is 0 when noise.var supplied instead of nugget.estim
 
 hyperparams <- data.frame (
     param = param_names,

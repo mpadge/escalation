@@ -10,7 +10,7 @@
 library (sensitivity)
 library (processx)
 library (dplyr)
-library (jsonlite)
+library (RcppTOML)
 library (cli)
 
 set.seed (42)
@@ -23,13 +23,15 @@ if (!dir.exists (results_dir)) {
     )
 }
 
-pars <- jsonlite::read_json ("defaults.json", pretty = TRUE)
+pars <- RcppTOML::parseTOML ("defaults.toml")
+pars_s <- pars$structural
+pars_a <- pars$analysis
 
 # ---------------------------------------------------------------------------
 # Select parameters: top N by mu* from Morris (or all 11 if no prior results)
 # ---------------------------------------------------------------------------
 # number of parameters to include in Sobol
-TOP_N <- pars$top_n # nolint
+TOP_N <- pars$sobol$top_n # nolint
 
 # delta is fixed (suppresses Psi monotonically) — excluded from all analyses
 FIXED_EXCLUDE <- c ("delta") # nolint
@@ -69,35 +71,36 @@ p <- length (param_names)
 binf <- all_binf [param_names]
 bsup <- all_bsup [param_names]
 
-# Structural constants from defaults.json; inactive free params at midpoints.
-d <- jsonlite::fromJSON ("defaults.json")
-log_dir <- if (!is.null (d$log_dir)) d$log_dir else "/tmp/escalation"
+# Structural constants from defaults.toml; inactive free params at midpoints.
+log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
 old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
 if (length (old_done) > 0) file.remove (old_done)
 cli_alert_info ("Progress files will be written to {log_dir}")
 
 fixed <- list (
-    n = 150L, mu0 = 0.5, sigma0 = d$sigma0,
-    c = d$c, e = d$e,
-    dw_coop = d$dw_coop, dw_sub = d$dw_sub, dw_excl = d$dw_excl,
-    eta = d$eta,
-    delta_direct = d$delta_direct, delta_exploit = d$delta_exploit,
-    w_min = d$w_min, w_max = d$w_max,
-    sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
-    eta_trauma = d$eta_trauma,
-    delta = d$delta,
-    t_max = 3000L,
+    n = as.integer (pars$sobol$n_sobol_pop), mu0 = pars_a$mu0, sigma0 = pars_a$sigma0,
+    c = pars_a$c, e = pars_a$e,
+    dw_coop = pars_a$dw_coop, dw_sub = pars_a$dw_sub, dw_excl = pars_a$dw_excl,
+    eta = pars_a$eta,
+    delta_direct = pars_a$delta_direct, delta_exploit = pars_a$delta_exploit,
+    w_min = pars_s$w_min, w_max = pars_s$w_max,
+    sigma_drift = pars_s$sigma_drift, rho_contested = pars_s$rho_contested,
+    eta_trauma = pars_s$eta_trauma,
+    delta = pars_s$delta,
+    t_max = as.integer (pars_a$t_max_sobol),
     # parameters not in the active set fixed at midpoint of their range
-    gamma = 3.0, lambda = 3.0, alpha = 1.0, theta = 2L, beta = 1.5,
-    w_win = 1.0, b = 1.0, w_loss = 1.0, dw_obs = 0.1, dw_bridge = 0.1,
-    eta_obs = 0.05
+    gamma = pars_a$mid_gamma, lambda = pars_a$mid_lambda, alpha = pars_a$mid_alpha,
+    theta = as.integer (pars_a$mid_theta), beta = pars_a$mid_beta,
+    w_win = pars_a$mid_w_win, b = pars_a$mid_b, w_loss = pars_a$mid_w_loss,
+    dw_obs = pars_a$mid_dw_obs, dw_bridge = pars_a$mid_dw_bridge,
+    eta_obs = pars_a$mid_eta_obs
 )
 
 # ---------------------------------------------------------------------------
 # Saltelli design: x1 and x2 sampled uniformly on actual parameter ranges
 # ---------------------------------------------------------------------------
-n_sobol <- pars$n_sobol # total evaluations = n * (2p + 2)
+n_sobol <- pars$sobol$n_sobol # total evaluations = n * (2p + 2)
 cli_alert_info ("Generating Saltelli design (n={n_sobol}, p={p})...")
 cli_alert_info ("Total binary calls: {n_sobol * (2 * p + 2)}")
 
@@ -112,8 +115,8 @@ make_design <- function (n, pnames, lo, hi) {
 x1 <- make_design (n_sobol, param_names, binf, bsup)
 x2 <- make_design (n_sobol, param_names, binf, bsup)
 
-s <- sobol2007 (model = NULL, x1 = x1, x2 = x2, nboot = 100)
-n_expected <- nrow (s$X)
+s_obj <- sobol2007 (model = NULL, x1 = x1, x2 = x2, nboot = 100)
+n_expected <- nrow (s_obj$X)
 cli_alert_info ("Saltelli design has {.value {n_expected}} rows")
 cli_alert_info (
     "Expected {.value {n_expected}} progress files — \\
@@ -121,11 +124,11 @@ cli_alert_info (
 )
 
 # Expand to full Params CSV
-design_full <- s$X
+design_full <- s_obj$X
 # Set all fixed params
 for (nm in names (fixed)) design_full [[nm]] <- fixed [[nm]]
-# Override with free param values (already in s$X)
-for (nm in param_names) design_full [[nm]] <- s$X [[nm]]
+# Override with free param values (already in s_obj$X)
+for (nm in param_names) design_full [[nm]] <- s_obj$X [[nm]]
 # Integer coercions
 design_full$theta <-
     pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
@@ -169,14 +172,14 @@ raw <- read.csv (file.path (results_dir, "sobol_raw.csv"))
 psi_vals <- raw$psi [seq (1, nrow (raw), by = 2)]
 psi_vals [is.na (psi_vals)] <- 0
 
-s <- tell (s, psi_vals)
+s_obj <- tell (s_obj, psi_vals)
 
 results <- data.frame (
     param = param_names,
-    S1    = s$S$original,
-    ST    = s$T$original,
-    S1_ci = s$S$`max. c.i.` - s$S$`min. c.i.`,
-    ST_ci = s$T$`max. c.i.` - s$T$`min. c.i.`
+    S1    = s_obj$S$original,
+    ST    = s_obj$T$original,
+    S1_ci = s_obj$S$`max. c.i.` - s_obj$S$`min. c.i.`,
+    ST_ci = s_obj$T$`max. c.i.` - s_obj$T$`min. c.i.`
 )
 results <- results [order (-results$ST), ]
 write.csv (

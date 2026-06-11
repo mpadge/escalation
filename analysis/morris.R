@@ -10,7 +10,7 @@
 library (sensitivity)
 library (processx)
 library (dplyr, warn.conflicts = FALSE)
-library (jsonlite)
+library (RcppTOML)
 library (cli)
 
 set.seed (42)
@@ -33,7 +33,7 @@ param_names <- c (
     "dw_obs", # observer edge increment (with dw_coop=0.15: r_obs_coop)
     "dw_bridge", # bridge edge increment (with dw_sub=0.15: r_bridge_sub)
     "eta_obs" # observational learning rate (with eta=0.1: kappa = eta_obs/eta)
-    # delta fixed at d$delta — suppresses Psi monotonically; held out of
+    # delta fixed at pars_s$delta — suppresses Psi monotonically; held out of
     # analyses
 )
 p <- length (param_names)
@@ -50,25 +50,28 @@ bsup <- c (
 )
 
 # Fixed parameters (not varied in this stage)
-# Structural constants from defaults.json; t_max reduced for screening speed.
-d <- jsonlite::fromJSON ("defaults.json")
-log_dir <- if (!is.null (d$log_dir)) d$log_dir else "/tmp/escalation"
+# Structural constants from defaults.toml; t_max reduced for screening speed.
+pars <- RcppTOML::parseTOML ("defaults.toml")
+pars_s <- pars$structural
+pars_a <- pars$analysis
+
+log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
 old_done <- list.files (log_dir, pattern = "\\.done$", full.names = TRUE)
 if (length (old_done) > 0) file.remove (old_done)
 cli_alert_info ("Progress files will be written to {log_dir}")
 
 fixed <- list (
-    n = as.integer (d$n), mu0 = 0.5, sigma0 = d$sigma0,
-    c = d$c, e = d$e,
-    dw_coop = d$dw_coop, dw_sub = d$dw_sub, dw_excl = d$dw_excl,
-    eta = d$eta,
-    delta_direct = d$delta_direct, delta_exploit = d$delta_exploit,
-    w_min = d$w_min, w_max = d$w_max,
-    sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
-    eta_trauma = d$eta_trauma,
-    delta = d$delta,
-    t_max = 2000L
+    n = as.integer (pars_a$n), mu0 = pars_a$mu0, sigma0 = pars_a$sigma0,
+    c = pars_a$c, e = pars_a$e,
+    dw_coop = pars_a$dw_coop, dw_sub = pars_a$dw_sub, dw_excl = pars_a$dw_excl,
+    eta = pars_a$eta,
+    delta_direct = pars_a$delta_direct, delta_exploit = pars_a$delta_exploit,
+    w_min = pars_s$w_min, w_max = pars_s$w_max,
+    sigma_drift = pars_s$sigma_drift, rho_contested = pars_s$rho_contested,
+    eta_trauma = pars_s$eta_trauma,
+    delta = pars_s$delta,
+    t_max = as.integer (pars_a$t_max_morris)
 )
 
 # ---------------------------------------------------------------------------

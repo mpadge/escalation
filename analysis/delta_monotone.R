@@ -9,11 +9,11 @@
 # A failed assertion here would invalidate the decision to fix delta and
 # exclude it from Sobol/GP analyses.
 #
-# Prerequisites: release binary (cargo build --release), processx, jsonlite, cli
+# Prerequisites: release binary (cargo build --release), processx, cli
 # Run from project root: Rscript analysis/delta_monotone.R
 
 library (processx)
-library (jsonlite)
+library (RcppTOML)
 library (cli)
 
 set.seed (42)
@@ -31,7 +31,10 @@ if (!file.exists (binary)) {
     cli_abort ("Binary not found — run 'cargo build --release'")
 }
 
-d <- jsonlite::fromJSON ("defaults.json")
+pars <- RcppTOML::parseTOML ("defaults.toml")
+pars_s <- pars$structural
+pars_a <- pars$analysis
+pars_dm <- pars$delta_monotone
 
 # ---------------------------------------------------------------------------
 # Delta grid and parameter combinations to test
@@ -60,18 +63,18 @@ combos <- list (
 
 # Fixed fields shared by all runs
 base_fixed <- list (
-    n = as.integer (d$n), mu0 = 0.5, sigma0 = d$sigma0,
-    theta = 2L, beta = 1.5,
-    c = d$c, e = d$e, b = 1.0,
-    w_loss = 1.0,
-    dw_coop = d$dw_coop, dw_sub = d$dw_sub, dw_bridge = 0.1,
-    dw_excl = d$dw_excl,
-    eta = d$eta, eta_obs = 0.05,
-    delta_direct = d$delta_direct, delta_exploit = d$delta_exploit,
-    w_min = d$w_min, w_max = d$w_max,
-    sigma_drift = d$sigma_drift, rho_contested = d$rho_contested,
-    eta_trauma = d$eta_trauma,
-    t_max = 3000L
+    n = as.integer (pars_a$n), mu0 = pars_a$mu0, sigma0 = pars_a$sigma0,
+    theta = as.integer (pars_a$mid_theta), beta = pars_a$mid_beta,
+    c = pars_a$c, e = pars_a$e, b = pars_a$mid_b,
+    w_loss = pars_a$mid_w_loss,
+    dw_coop = pars_a$dw_coop, dw_sub = pars_a$dw_sub, dw_bridge = pars_a$mid_dw_bridge,
+    dw_excl = pars_a$dw_excl,
+    eta = pars_a$eta, eta_obs = pars_a$mid_eta_obs,
+    delta_direct = pars_a$delta_direct, delta_exploit = pars_a$delta_exploit,
+    w_min = pars_s$w_min, w_max = pars_s$w_max,
+    sigma_drift = pars_s$sigma_drift, rho_contested = pars_s$rho_contested,
+    eta_trauma = pars_s$eta_trauma,
+    t_max = as.integer (pars_a$t_max_sobol)
 )
 
 # ---------------------------------------------------------------------------
@@ -137,9 +140,9 @@ for (combo_name in names (combos)) {
     psi <- sub$psi [order (sub$delta)]
     diffs <- diff (psi)
 
-    # Allow a small tolerance for stochastic noise (~5% of the Psi range)
-    tol <- 0.05 * diff (range (psi, na.rm = TRUE))
-    tol <- max (tol, 0.01) # floor tolerance at 0.01
+    # Allow a small tolerance for stochastic noise
+    tol <- pars_dm$delta_tol_factor * diff (range (psi, na.rm = TRUE))
+    tol <- max (tol, pars_dm$delta_tol_floor)
 
     violations <- sum (diffs > tol, na.rm = TRUE)
     if (violations == 0) {
@@ -164,7 +167,7 @@ if (!all_pass) {
     stop ("Monotonicity check FAILED — review delta_monotone_results.csv")
 } else {
     cli_alert_info (
-        "All checks passed. delta fixed at {.val {d$delta}} is \\
+        "All checks passed. delta fixed at {.val {pars_s$delta}} is \\
         consistent with the suppression finding."
     )
 }

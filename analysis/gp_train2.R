@@ -39,6 +39,10 @@ load_and_aggregate <- function (results_dir, n_rep) {
     raw <- raw |>
         mutate (pair_idx = ceiling (row_number () / (2L * n_rep)))
 
+    # Reconstruct eta_obs from kappa = eta_obs / eta (eta fixed at pars$analysis$eta)
+    eta_fixed <- RcppTOML::parseTOML ("defaults.toml")$analysis$eta
+    raw <- raw |> mutate (eta_obs = kappa * eta_fixed)
+
     # Design-point parameter values from the first lo row of each pair
     design_pts <- raw |>
         filter (mu0 < 0.5) |>

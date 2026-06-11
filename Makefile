@@ -5,7 +5,7 @@
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
 	    /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } \
-	    /^[a-zA-Z_-]+:.*##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' \
+	    /^[0-9a-zA-Z_-]+:.*##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' \
 	    $(MAKEFILE_LIST)
 
 .DEFAULT_GOAL := help

@@ -7,7 +7,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
 # Tasks: report-draft
 
 ## T004-1: Write docs/report.md — Opening section
-- [ ] T004-1: Create `docs/` directory if it does not exist. Write the
+- [x] T004-1: Create `docs/` directory if it does not exist. Write the
   **Opening** section of `docs/report.md` (~200 words). Frame the central
   question: escalation is individually tempting but socially costly; the
   question is whether social feedback amplifies or absorbs escalatory
@@ -18,7 +18,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
   introduce model details yet.
 
 ## T004-2: Write docs/report.md — Model in brief section
-- [ ] T004-2: Append a **The model** section (~300 words) to `docs/report.md`.
+- [x] T004-2: Append a **The model** section (~300 words) to `docs/report.md`.
   Describe what the simulation captures for a non-technical reader: agents
   embedded in a social network, repeated interactions whose outcomes leave a
   lasting trace in the network (edge weights as relational memory), and two
@@ -31,7 +31,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
   no mention of GP emulators or sensitivity analysis methods.
 
 ## T004-3: Write docs/report.md — Amplification section
-- [ ] T004-3: Append a **Does more escalation beget more escalation?** section
+- [x] T004-3: Append a **Does more escalation beget more escalation?** section
   (~700 words) to `docs/report.md`. Draw on
   `specs/002-equilibrium-surfaces/results/summary.md` and `interpretation.md`.
   Cover: (a) the baseline result — across most structural conditions, a
@@ -49,7 +49,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
   ratio" thereafter.
 
 ## T004-4: Write docs/report.md — Centrality section
-- [ ] T004-4: Append a **Does escalation concentrate power?** section (~700
+- [x] T004-4: Append a **Does escalation concentrate power?** section (~700
   words) to `docs/report.md`. Draw on
   `specs/003-centrality-correlation/results/summary.md` and
   `interpretation.md`. Cover: (a) the baseline result — escalatory individuals
@@ -68,7 +68,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
   conceptual centrepiece of the memo.
 
 ## T004-5: Write docs/report.md — Cooperation and stability section
-- [ ] T004-5: Append a **Why escalation does not take over** section (~600
+- [x] T004-5: Append a **Why escalation does not take over** section (~600
   words) to `docs/report.md`. Argue from the model's payoff asymmetry —
   without citing specific parameter values — that cooperation provides a
   stabilising counterforce that prevents convergence to a single dominant
@@ -85,7 +85,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
   not the amplification regime.
 
 ## T004-6: Write docs/report.md — Discussion and caveats section
-- [ ] T004-6: Append a **Discussion** section (~500 words) to `docs/report.md`.
+- [x] T004-6: Append a **Discussion** section (~500 words) to `docs/report.md`.
   Cover: (a) the two main findings stated plainly: the population-level
   amplification is real but narrow; the individual-level centrality advantage
   is weak and dissociated from the amplification regime; (b) what the model
@@ -99,7 +99,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
   is the natural next step.
 
 ## T004-7: Identify figures and write docs/plot_report.R
-- [ ] T004-7: Read the completed `docs/report.md` and identify which phase
+- [x] T004-7: Read the completed `docs/report.md` and identify which phase
   diagram panels are cited or would materially strengthen the narrative.
   Expected candidates: (a) the alpha × lambda Ψ surface from Stage 2 (the
   amplification regime); (b) the gamma × lambda three-panel from Stage 2 or
@@ -117,7 +117,7 @@ git_hash: a938c4a2320aa587b04a674f98da674ac5819e70
   paragraphs in `docs/report.md`.
 
 ## T004-8: Run docs/plot_report.R and verify figure outputs
-- [ ] T004-8: Run `Rscript docs/plot_report.R` and confirm all expected PNG
+- [x] T004-8: Run `Rscript docs/plot_report.R` and confirm all expected PNG
   files appear in `docs/figures/`. If any figure fails to render, fix the
   error before proceeding. Check that figure filenames match the references
   inserted into `docs/report.md` in T004-7.

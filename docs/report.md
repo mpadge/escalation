@@ -1,0 +1,345 @@
+# When Does Escalation Spread? Network Dynamics, Payoff Asymmetry, and the Limits of Self-Reinforcement
+
+---
+
+## The question
+
+Escalation — the tendency to respond to conflict with force rather than
+accommodation — is individually tempting. In a direct confrontation, the agent
+who escalates can extract an immediate advantage: dominant positioning, greater
+access to resources, enhanced status in the eyes of observers. Yet escalation
+is also socially costly. It damages relationships, invites retaliation, and
+erodes the cooperative infrastructure through which influence is normally
+exercised. The standard intuition from social and organisational contexts is
+that these costs and benefits roughly balance: escalation is a viable short-run
+strategy but an unstable long-run equilibrium, because sufficiently many
+escalators destroy the cooperative conditions that make the social environment
+worth participating in.
+
+But this intuition leaves open two sharper questions. First, at the population
+level: if a group starts with a somewhat higher tendency to escalate, does the
+social environment amplify that tendency over time — producing a population
+that is disproportionately *more* escalatory than it started — or does it absorb
+the perturbation, pulling both high-tendency and low-tendency groups toward a
+common equilibrium? Second, at the individual level: do the agents who escalate
+most readily end up more powerful — more central in the network of social
+influence — and does that advantage compound as the population's baseline
+escalation tendency increases?
+
+These two questions are related but not identical. A society could become more
+uniformly escalatory without concentrating power in the most escalatory
+individuals. Conversely, a few extremely central escalators could dominate a
+network without triggering population-level escalation norms. The analysis
+reported here addresses both questions, and the answers are interestingly
+asymmetric.
+
+---
+
+## The model in brief
+
+The analysis uses a computational model of a social group whose members are
+embedded in a network of weighted relationships. The weight on each link
+between two individuals represents the accumulated history of their
+interactions — how much positive influence, deference, and cooperation has
+flowed between them. Stronger links mean a richer, more durable social
+relationship; weaker links indicate more distant or damaged ties.
+
+At each step, a small group of individuals is drawn together for an
+interaction. Each person independently decides whether to escalate (compete
+aggressively for dominance) or cooperate and conciliate. The outcome of that
+interaction — and its effect on everyone present and observing — depends on
+who does what. Three broad scenarios arise: consensus escalation (everyone
+competes), mixed encounters (escalators and conciliators in the same group),
+and consensus cooperation (everyone accommodates).
+
+The payoffs are asymmetric in a way that is central to what follows. Escalation
+can win an encounter outright: the winner gains in standing, their tie to the
+defeated party strengthens as the relationship shifts toward deference, and
+observers update their perception of the winner's hierarchical status. These
+are real and immediate gains — not merely symbolic — that directly enhance
+the escalator's network centrality and positional influence. The cost is
+structural: winning through confrontation also damages or severs the
+cooperative ties through which broader, diffuse influence normally flows,
+and the defeated party's social connections may weaken as their standing
+falls. Cooperation operates differently — there is no immediate dominance
+gain — but it generates distributed benefits: the ties between cooperating
+individuals strengthen, new bridging connections form between their respective
+networks, and solidarity within cooperative clusters grows. Over time, the
+cooperative network reconstitutes itself after each escalatory confrontation,
+while the escalatory network must continuously extract new wins to sustain
+its position. The fundamental asymmetry is not that escalation fails to pay
+off — it does — but that its payoffs are concentrated and positional, while
+cooperation's are diffuse and structural.
+
+Each individual also has a baseline escalation tendency — a personal
+probability of choosing to escalate in any given encounter — that evolves
+through experience and observation. Successful escalation reinforces the
+tendency; observing others escalate successfully raises it in observers too.
+The key structural question addressed here is how the social environment
+responds when this baseline tendency — call it the population's starting level
+of escalatory disposition — is higher or lower.
+
+---
+
+## Does more escalation beget more escalation?
+
+Suppose one social group starts with a slightly higher average tendency to
+escalate than another — say, a 20-percentage-point difference in the
+baseline probability of escalating at the outset. By the time both groups
+have reached a stable social equilibrium, how large is that gap? Has it grown,
+shrunk, or stayed the same?
+
+The answer, across most structural conditions, is that the gap shrinks. The
+social environment is a dampener: both groups settle into an equilibrium that
+is more escalatory than either started, but the group that began more
+escalatory does not end up proportionally more escalatory than the one that
+began less so. The 20-percentage-point starting difference becomes, say, a
+10- or 15-point equilibrium difference. The dynamics absorb the perturbation
+rather than amplifying it.
+
+To quantify this, define an amplification ratio — the ratio of the equilibrium
+escalation gap between the two groups to the gap they started with. A ratio of
+1 means the equilibrium gap is exactly as large as the starting gap; a ratio
+below 1 means the gap has shrunk (dampening); a ratio above 1 means the gap
+has grown (amplification, or self-reinforcement of the initial difference).
+Across most of the parameter space explored here, the amplification ratio is
+below 1.
+
+But not everywhere. The amplification ratio exceeds 1 in two structural
+configurations, and both share a common ingredient: small encounter groups.
+
+**Configuration 1: Small groups with local influence.** When encounters involve
+only a few individuals at a time *and* the influence of each interaction is
+strongly localised — rippling through close network neighbours rather than
+broadcasting broadly — the amplification ratio reaches as high as 1.34. The
+mechanism is intuitive: in small groups where influence stays local, early
+encounters establish dominance norms that harden before the broader social
+network can average them away. The group that starts with more escalators
+seeds more local dominance relationships early; the group that starts with
+fewer does not reach the critical density needed to trigger the same
+crystallisation. The same structural environment that amplifies for the
+high-tendency group dampens for the low-tendency group.
+
+**Configuration 2: Small groups with steep hierarchy.** When encounters are
+small *and* the rewards for hierarchical status are steep — when higher-ranked
+individuals command disproportionately large deference — the amplification
+ratio just crosses 1 (reaching approximately 1.03). Steep hierarchy amplifies
+the advantage of early escalation victories: winning once matters a lot because
+hierarchy is the dominant filter through which subsequent interactions are
+resolved. Small groups accelerate the crystallisation. Again, the high-tendency
+group arrives with enough initial escalators to seed hierarchical dominance
+before the cooperative alternative can organise.
+
+What do these configurations look like in practice? Tightly-knit subgroups
+with strongly localised social influence: adolescent peer groups, small
+professional cohorts, insular communities with high internal density and low
+external connectivity. Steep hierarchies with small interaction sets: certain
+military or paramilitary organisations, some religious orders, small gangs.
+These are recognisable social forms. But they are not the default architecture
+of most organisations or social environments. Open networks with broad
+interaction reach, flat or moderate hierarchy, and mixed-size encounter groups
+— the structural conditions that describe most workplaces, neighbourhoods, and
+civic associations — are firmly in the dampening regime. In those environments,
+the self-reinforcing escalation scenario does not arise.
+
+The practical implication is that the conditions for escalatory self-reinforcement
+are structurally specific, and the structural parameters that matter are group
+size and the reach of social influence — not intrinsic properties of the
+individuals, and not the overall reward structure in isolation.
+
+*Figure 1 shows the amplification ratio surface for group size (vertical axis)
+versus influence locality (horizontal axis). The white contour marks Ψ = 1;
+the amplification regime lies in the upper-left corner, covering roughly 10–15%
+of the surface area explored.*
+
+![Figure 1: Amplification regime — group size × influence locality](figures/fig1_amplification_alpha_lambda.png)
+
+---
+
+## Does escalation concentrate power?
+
+The population-level question is whether escalation spreads. The individual-level
+question is whether it pays off in terms of social standing — specifically,
+whether individuals who escalate more readily end up more central in the social
+network, with more connections and more influence, at equilibrium.
+
+The answer here is: broadly yes, but weakly and selectively.
+
+Across most of the parameter space, escalatory individuals do end up somewhat
+more connected and more central at equilibrium than their less escalatory peers.
+The correlation between an individual's escalation tendency and their network
+centrality at equilibrium is, on average, positive — around 0.08. That is a
+weak signal, but a consistent one. More notably, in some structural
+configurations this correlation reaches 0.63 — a strong alignment between
+escalatory disposition and network position. The social environment does not,
+in general, neutralise the individual advantages of escalation.
+
+What determines how strong this advantage is? Not group size, as one might
+expect given its central role in the amplification story. Not the rate at which
+individuals learn from observing others. The dominant structural determinant is
+the *locality of social influence* — specifically, how steeply an individual's
+influence falls off with network distance. In networks where influence stays
+local and spreads slowly, escalatory individuals accumulate connections and
+status persistently over time: their early confrontational victories establish
+local dominance relationships that compound, because each new connection expands
+their radius of influence incrementally. In networks where influence spreads
+globally — where a single encounter can shift the perceptions of agents far
+across the network — that accumulation is disrupted; the broader social
+environment continuously rebalances, attenuating the edge that escalation
+provides.
+
+This points to a structural portrait of when escalation concentrates power:
+fragmented or localised networks, where interaction histories are sticky and
+early signals matter disproportionately. Not the same portrait as the
+amplification story — and here is where the analysis becomes most instructive.
+
+*Figure 2 shows the ε–degree correlation surface for influence locality (vertical
+axis) versus hierarchy steepness (horizontal axis). The locality axis is the
+dominant driver: the correlation rises steeply as influence becomes more
+localised, largely independently of hierarchy steepness.*
+
+![Figure 2: Centrality concentration — influence locality × hierarchy steepness](figures/fig2_centrality_alpha_gamma.png)
+
+**The dissociation.** The structural regime that produces the strongest
+population-level amplification of escalation — small groups combined with steep
+hierarchy — is, counter-intuitively, the regime where increasing the population's
+baseline escalation tendency *most reduces* the correlation between individual
+escalation and individual centrality. Across the full range of group sizes and
+hierarchy steepness, raising the baseline escalation tendency uniformly *lowers*
+the advantage that high-tendency individuals hold in the network. In this regime,
+more escalation does spread through the population (Stage 2 finding), but it
+spreads *to everyone*, not preferentially to the already-escalatory.
+
+The mechanism: when groups are small and hierarchy rewards are steep, whoever
+escalates early gains local dominance quickly. Raising the population's baseline
+tendency means *more* agents reach that threshold early — so the hierarchy
+crystallises with a broader set of moderately-central escalators rather than a
+narrower set of highly-central ones. The distribution of network power flattens
+even as the average level of escalation rises. Population-level spread and
+individual-level concentration move in opposite directions.
+
+The practical reading is important: in the conditions where escalation is most
+likely to become a self-reinforcing social norm — the small, tight, hierarchical
+settings described above — it is also least likely to produce a clear dominant
+class of escalatory power-holders. The escalation norm emerges, but it emerges
+collectively. Conversely, in the fragmented, locally-connected settings where
+individual escalators do accumulate persistent network advantages, the broader
+social dynamics are firmly dampening — the norm does not spread at the
+population level.
+
+These are two different failure modes, and they do not coincide.
+
+*Figure 3 shows the difference in ε–degree correlation (C_hi − C_lo) across
+the hierarchy steepness × group size surface. The surface is uniformly negative:
+in every combination of these parameters, raising the baseline escalation
+tendency reduces the individual centrality advantage.*
+
+![Figure 3: Dissociation — hierarchy steepness × group size](figures/fig3_dissociation_gamma_lambda.png)
+
+---
+
+## Why cooperation prevents runaway escalation
+
+Given that escalation can individually pay off — more connections, more
+centrality — why does the model not converge to a single dominant escalatory
+hierarchy, a winner-takes-all outcome where the most escalatory agents
+accumulate all the network ties and everyone else is marginalised?
+
+The answer lies in the asymmetric structure of the payoffs.
+
+When two individuals cooperate, both benefit — and the benefit is diffuse.
+Their direct tie strengthens, but so do the ties in the broader neighbourhood:
+bridging connections form between the networks each person is embedded in,
+solidarity within cooperative clusters grows, and the local social fabric
+thickens. These are durable gains that do not require continued escalatory
+behaviour to maintain. A cooperatively-built network position, once established,
+is self-sustaining: the ties persist because each party has an ongoing interest
+in maintaining them.
+
+When an escalator wins an encounter, the gain is real but narrower. The
+escalator's own position improves — their tie to the defeated party may
+strengthen, their standing in the eyes of observers rises — but the mechanism
+of the gain involves degrading or threatening the relationships of others. The
+defeated party's ties weaken or are severed. Observers who are intimidated
+become less likely to invest in cooperative ties with the escalator. Each
+escalatory gain is, in part, extracted from the cooperative pool.
+
+The cumulative effect is that the cooperative infrastructure — the dense network
+of mutual-benefit ties that distributes influence across the social group —
+reconstitutes itself after each escalatory episode. Conciliatory and cooperative
+individuals continuously rebuild the bridging connections and group solidarity
+bonds that escalatory encounters degrade. This is not passive resilience; it is
+an active reconstruction of the network pathways around escalatory bottlenecks.
+An escalator who has degraded their immediate ties finds that the broader network
+has rerouted around them — not through deliberate collective action, but simply
+because the cooperative individuals in the network keep investing in ties that
+do not route through an unreliable partner.
+
+This mechanism explains why the centrality advantage of escalatory individuals
+is bounded. The correlation between escalatory disposition and network centrality
+in most structural environments sits below 0.3 — measurable, but far from
+dominant. Even in the high-correlation regimes (localised influence, moderate
+hierarchy), the advantage plateaus rather than compounding without limit. The
+ceiling is set by how fast the cooperative network can rebuild around the
+escalatory nucleus.
+
+It also explains why the model produces no winner-takes-all outcome. A fully
+dominant escalatory hierarchy would require sustained degradation of cooperative
+tie-formation faster than the cooperative network can rebuild. But the payoff
+structure ensures that cooperation always produces some positive surplus for
+both parties — there is always an incentive to maintain cooperative ties, even
+for individuals whose escalation tendency is moderately high. The cooperative
+reconstruction rate is not a fragile background process; it is a direct
+consequence of the payoff incentives that motivate every agent in the network.
+The asymmetry of payoffs is, in this sense, a structural guarantee against
+singularity.
+
+---
+
+## Discussion
+
+Two findings emerge cleanly from this analysis. First, population-level
+self-reinforcement of escalation is real but structurally narrow: it requires
+small encounter groups and either strongly localised influence or steep
+hierarchical rewards. Most social environments — characterised by moderate group
+sizes, mixed interaction reach, and moderate hierarchy — are firmly in the
+dampening regime. A higher starting tendency to escalate does not produce a
+proportionally higher equilibrium outcome; it is absorbed. Second, the
+individual-level advantage of escalation is positive but weak on average, and
+is governed by the locality of network influence rather than by the same
+structural parameters that enable population-level spread. Crucially, the two
+phenomena dissociate: the regime that most amplifies escalation as a social
+norm is the regime that most suppresses the individual power-concentration
+advantage.
+
+This dissociation has a practical implication that is not immediately intuitive.
+If the concern is that a social environment is producing a self-reinforcing
+escalation norm, the structural parameters to examine are group size and
+interaction reach — not the individual reward parameters. A flat, well-connected
+network with diverse group composition is robustly dampening regardless of the
+individual payoffs. Conversely, if the concern is that specific individuals are
+accumulating disproportionate power through escalatory behaviour, the relevant
+parameter is again structural — the locality of influence — but it is a
+different structural parameter, and the environments where this accumulation is
+strongest are not the environments where the norm is spreading.
+
+Several aspects of the dynamics were not examined in this analysis and represent
+natural extensions. The inequality of network centrality at equilibrium — not
+just the correlation between escalation and centrality, but how concentrated
+the distribution of connections becomes — was not characterised. Neither was
+the distribution of interaction regimes (how much time the population spends
+in escalatory versus cooperative versus contested encounters), nor the time
+it takes to reach equilibrium from different starting conditions. These
+trajectory-level questions are likely to further differentiate the amplifying
+from the dampening regimes, and may reveal conditions under which the
+amplification window is transient rather than permanent.
+
+The more fundamental message from the current analysis is that the social
+mechanisms most likely to generate persistent escalation — cooperative
+payoff asymmetry that systematically rebuilds the non-escalatory network —
+are also the mechanisms that prevent any individual from leveraging escalation
+into permanent dominance. The same payoff structure that bounds the individual
+advantage is the one that prevents population-level runaway. Escalation and
+cooperation are not simply in conflict; they are in a structural equilibrium
+whose stability properties are determined by the architecture of the social
+environment, not by the intrinsic characteristics of the individuals within it.

@@ -170,7 +170,7 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
 - [ ] T003-7: Write `analysis/plot3.R` that reads from `results/gp_phase3/`
   and generates phase diagram plots for all 18 surfaces. Source
   `analysis/plot_utils.R` and use its functions throughout. Steps:
-  1. `source("analysis/plot_utils.R")`.
+  1. `source("analysis/plot_utils.R")`.  # shared with plot2.R
   2. Call `build_e_limits(phase3_dir, "phase3_lo", "phase3_hi")` for the
      shared sequential scale limits across C_lo and C_hi panels.
   3. For each of the 6 pairs (detected from `phase3_hi_*.csv` filenames):

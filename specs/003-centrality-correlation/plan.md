@@ -95,11 +95,10 @@ how that relates to the Stage 2 amplification regime.
 
 ## Open Questions
 
-1. **Sign of the baseline correlation**: it is not yet known whether
-   `epsilon_k_corr_final` is typically positive (escalatory agents end up
-   more central) or negative (they end up more isolated). The direction of
-   the baseline will determine how the difference surface should be
-   interpreted.
+1. **Sign of the baseline correlation**: `epsilon_k_corr_final` is
+   hypothesised to be positive (escalatory agents end up more central).
+   Negative regions of the difference surface are not of interest; analysis
+   focuses on where (C_hi − C_lo) is maximised.
 
 2. **Relationship to Stage 2 amplification regime**: the hypothesis is that
    the alpha×lambda amplification regime identified in Stage 2 coincides with

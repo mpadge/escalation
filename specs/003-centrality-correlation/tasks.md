@@ -7,7 +7,7 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
 # Tasks: centrality-correlation
 
 ## T003-0: Extract shared utilities from existing analysis scripts
-- [ ] T003-0: Read `analysis/gp_train2.R`, `analysis/gp_phase2.R`, and
+- [x] T003-0: Read `analysis/gp_train2.R`, `analysis/gp_phase2.R`, and
   `analysis/plot2.R`. Extract all reusable functions into three new utility
   files so that Stage 2 and Stage 3 scripts share code rather than duplicate
   it. Then update the Stage 2 scripts to source the utilities. Specific
@@ -85,7 +85,7 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
     files and CSVs are written without error).
 
 ## T003-1: Write analysis/gp_train3.R
-- [ ] T003-1: Write `analysis/gp_train3.R` that trains two GP emulators on
+- [x] T003-1: Write `analysis/gp_train3.R` that trains two GP emulators on
   the epsilon-degree correlation surfaces from Stage 1 data. The script must
   source `analysis/gp_train_utils.R` and use its functions throughout. Steps:
   1. `source("analysis/gp_train_utils.R")`.
@@ -105,7 +105,7 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
       file.path(results_dir, "gp3_hyperparams.csv"))`.
 
 ## T003-2: Add Makefile gp3 target
-- [ ] T003-2: Add a `gp3` target to the `Makefile` that runs
+- [x] T003-2: Add a `gp3` target to the `Makefile` that runs
   `Rscript analysis/gp_train3.R`. Add to `.PHONY` with `##` comment:
   `## Train two-GP emulators on epsilon-degree correlation surfaces (Stage 3)`.
   Do not modify existing targets.

@@ -1,6 +1,6 @@
 #!/usr/bin/make
 
-.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2
+.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
@@ -47,6 +47,9 @@ gp2_phase: ## Generate two-GP phase diagrams for E_lo, E_hi, and Psi surfaces (S
 
 plots2: ## Generate Stage 2 phase diagram plots
 	Rscript analysis/plot2.R
+
+gp3: ## Train two-GP emulators on epsilon-degree correlation surfaces (Stage 3)
+	Rscript analysis/gp_train3.R
 
 ##@ Utilities
 

@@ -111,13 +111,15 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
   Do not modify existing targets.
 
 ## T003-3: Run gp3 and write results/gp.md
-- [ ] T003-3: Run `make gp3` and capture the console output including ARD
-  length scales, RMSE, and coverage for both GPs. Verify: (a) both
-  `results/gp_corr_lo.rds` and `results/gp_corr_hi.rds` exist; (b) nugget > 0
-  for both; (c) no ARD length scale is degenerate (< 0.05 relative to the
-  parameter range). Then write `specs/003-centrality-correlation/results/gp.md`
-  documenting:
+- [x] T003-3: Verify `make gp3` completed successfully: (a) both
+  `results/gp_corr_lo.rds` and `results/gp_corr_hi.rds` exist; (b) read
+  `results/gp3_hyperparams.csv` and check nugget > 0 for both conditions;
+  (c) check no ARD length scale is degenerate (< 0.05 relative to the
+  parameter range); (d) read `results/gp3_data.csv` to check the sign and
+  typical magnitude of `y_lo` and `y_hi` (the correlation values). Then write
+  `specs/003-centrality-correlation/results/gp.md` documenting:
   - ARD length scales and sensitivity (1/ell) for both GPs side-by-side
+    (from `results/gp3_hyperparams.csv`)
   - Nugget and σ² for each
   - RMSE and coverage for each
   - Whether the two GPs agree on which parameters are most important
@@ -126,7 +128,7 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
   - Notable differences in parameter sensitivity between C_lo and C_hi
 
 ## T003-4: Write analysis/gp_phase3.R
-- [ ] T003-4: Write `analysis/gp_phase3.R` that generates phase diagrams for
+- [x] T003-4: Write `analysis/gp_phase3.R` that generates phase diagrams for
   three surfaces: C_lo, C_hi, and difference = C_hi − C_lo. The script must
   source `analysis/gp_phase_utils.R` and use its functions throughout. Steps:
   1. `source("analysis/gp_phase_utils.R")`.
@@ -147,13 +149,13 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
      difference anywhere, and the maximum difference across all pairs.
 
 ## T003-5: Add Makefile gp3_phase target
-- [ ] T003-5: Add a `gp3_phase` target to the `Makefile` that runs
+- [x] T003-5: Add a `gp3_phase` target to the `Makefile` that runs
   `Rscript analysis/gp_phase3.R`. Add to `.PHONY` with comment:
   `## Generate two-GP phase diagrams for C_lo, C_hi, and difference surfaces (Stage 3)`.
   Do not modify existing targets.
 
 ## T003-6: Run gp3_phase and append to gp.md
-- [ ] T003-6: Run `make gp3_phase` and capture the console output. Verify that
+- [x] T003-6: Run `make gp3_phase` and capture the console output. Verify that
   18 CSV files exist in `results/gp_phase3/` (6 pairs × 3 surfaces). Append a
   **Phase diagrams** section to `specs/003-centrality-correlation/results/gp.md`
   documenting:
@@ -167,7 +169,7 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
     amplification pairs (alpha×lambda and gamma×lambda)
 
 ## T003-7: Write analysis/plot3.R
-- [ ] T003-7: Write `analysis/plot3.R` that reads from `results/gp_phase3/`
+- [x] T003-7: Write `analysis/plot3.R` that reads from `results/gp_phase3/`
   and generates phase diagram plots for all 18 surfaces. Source
   `analysis/plot_utils.R` and use its functions throughout. Steps:
   1. `source("analysis/plot_utils.R")`.  # shared with plot2.R
@@ -183,18 +185,18 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
         `out_path = results/plots/phase3_<tag>.png`.
 
 ## T003-8: Add Makefile plots3 target
-- [ ] T003-8: Add a `plots3` target to the `Makefile` that runs
+- [x] T003-8: Add a `plots3` target to the `Makefile` that runs
   `Rscript analysis/plot3.R`. Add to `.PHONY` with comment:
   `## Generate Stage 3 phase diagram plots`. Do not modify existing targets.
 
 ## T003-9: Run plots3 and confirm outputs
-- [ ] T003-9: Run `make plots3` and confirm that 6 PNG files exist in
+- [x] T003-9: Run `make plots3` and confirm that 6 PNG files exist in
   `results/plots/` matching `phase3_*.png`. If any plot fails, fix the error
   before proceeding. Confirm the difference = 0 contour is rendered in all
   difference panels.
 
 ## T003-10: Write stage results summary
-- [ ] T003-10: Write `specs/003-centrality-correlation/results/summary.md`
+- [x] T003-10: Write `specs/003-centrality-correlation/results/summary.md`
   documenting the full quantitative results: GP hyperparameter tables for both
   conditions, per-pair phase diagram summary table, and a direct answer to
   the central question: "Do high-epsilon individuals benefit more from
@@ -203,7 +205,7 @@ git_hash: 82fafb29081854c16a1f6e9c4d5f628567de0edc
   or contrast with the Stage 2 amplification findings.
 
 ## T003-11: Write stage interpretation
-- [ ] T003-11: Write `specs/003-centrality-correlation/results/interpretation.md`
+- [x] T003-11: Write `specs/003-centrality-correlation/results/interpretation.md`
   as a prose narrative in the style of
   `specs/002-equilibrium-surfaces/results/interpretation.md`. Address:
   (1) what the baseline correlation surfaces (C_lo, C_hi) reveal about the

@@ -46,7 +46,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-5: Implement sigma update rule for non-participant observers
 
-- [ ] T005-5: In `src/sim.rs`, extend the observer update function (the loop over
+- [x] T005-5: In `src/sim.rs`, extend the observer update function (the loop over
   non-participant witnesses `k ∈ O \ G`) to also update σ_k. Before the timestep's payoff
   resolution begins, snapshot `payoff_before_k = state.payoff[k]` for each observer `k`
   (this requires either passing a pre-snapshot slice into the function, or capturing it

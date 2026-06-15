@@ -157,7 +157,9 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
                 })
                 .map(|(&i, _)| i);
             if let Some(w_node) = winner {
-                update_observer_propensities(&mut state, &net, &group, w_node, params);
+                let w_idx = group.iter().position(|&x| x == w_node).unwrap();
+                let winner_pb = payoffs_before[w_idx];
+                update_observer_propensities(&mut state, &net, &group, w_node, winner_pb, params);
             }
         }
 
@@ -623,6 +625,7 @@ fn update_observer_propensities(
     net: &Network,
     group: &[u32],
     winner: u32,
+    winner_payoff_before: f64,
     params: &Params,
 ) {
     let group_set: std::collections::HashSet<u32> = group.iter().copied().collect();
@@ -630,15 +633,25 @@ fn update_observer_propensities(
     let observers: Vec<u32> = net.audience_data[as_..ae]
         .iter().copied().filter(|k| !group_set.contains(k)).collect();
 
-    let mut updates: Vec<(usize, f64)> = Vec::new();
+    // Winner's payoff gain: proxy for whether observing this encounter was valuable.
+    // Non-participant observers don't receive direct payoffs this timestep, so we use
+    // the winner's gain as the vicarious reinforcement signal for sigma.
+    let winner_payoff_delta = state.payoff[winner as usize] - winner_payoff_before;
+
+    let mut eps_updates: Vec<(usize, f64)> = Vec::new();
+    let mut sigma_updates: Vec<(usize, f64)> = Vec::new();
     for k in observers {
         let wd = wd_lookup(&state.weighted_dist, net, k as usize, winner as usize);
         let weight = (-params.alpha * wd).exp();
         let o_k = if state.epsilon[k as usize] > 0.5 { 1.0 } else { -1.0 };
-        updates.push((k as usize, params.eta_obs * state.sigma[k as usize] * o_k * weight));
+        eps_updates.push((k as usize, params.eta_obs * state.sigma[k as usize] * o_k * weight));
+        sigma_updates.push((k as usize, params.eta_sigma * winner_payoff_delta.signum()));
     }
-    for (i, delta) in updates {
+    for (i, delta) in eps_updates {
         state.epsilon[i] = (state.epsilon[i] + delta).clamp(0.0, 1.0);
+    }
+    for (i, delta) in sigma_updates {
+        state.sigma[i] = (state.sigma[i] + delta).clamp(0.0, 1.0);
     }
 }
 

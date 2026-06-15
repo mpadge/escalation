@@ -1,6 +1,6 @@
 #!/usr/bin/make
 
-.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3 gp3_phase plots3
+.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3 gp3_phase plots3 doc
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
@@ -56,6 +56,11 @@ gp3_phase: ## Generate two-GP phase diagrams for C_lo, C_hi, and difference surf
 
 plots3: ## Generate Stage 3 phase diagram plots
 	Rscript analysis/plot3.R
+
+##@ Documentation
+
+doc: ## Render report with resolved citations (docs/report.myst → docs/report.md)
+	cd docs && pandoc -f markdown report.myst --bibliography references.bib --citeproc -t markdown -o report.md
 
 ##@ Utilities
 

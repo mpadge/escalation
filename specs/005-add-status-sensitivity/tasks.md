@@ -26,7 +26,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-3: Scale prestige radiation by sigma_w * sigma_k
 
-- [ ] T005-3: In `src/sim.rs`, find all prestige radiation edge updates applied to observers
+- [x] T005-3: In `src/sim.rs`, find all prestige radiation edge updates applied to observers
   of a winner `w`. These currently read `omega_w * params.dw_obs * ...` (two variants: one
   for in-group observers without the distance decay, one for non-group observers with
   `exp(-alpha * wd_kw)`). Multiply both by `state.sigma[w as usize] * state.sigma[k as usize]`

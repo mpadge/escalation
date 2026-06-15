@@ -358,10 +358,11 @@ fn handle_consensus_conflict(
     for &k in &observers {
         let wd_kw = wd_lookup(&state.weighted_dist, net, k as usize, winner as usize);
         let in_group = group.contains(&k);
+        let sig_scale = state.sigma[winner as usize] * state.sigma[k as usize];
         let delta = if in_group {
-            omega_w * params.dw_obs
+            omega_w * params.dw_obs * sig_scale
         } else {
-            omega_w * params.dw_obs * (-params.alpha * wd_kw).exp()
+            omega_w * params.dw_obs * sig_scale * (-params.alpha * wd_kw).exp()
         };
         set_w(state, net, k as usize, winner as usize, delta, params, dirty);
     }
@@ -372,7 +373,8 @@ fn handle_consensus_conflict(
         let omega_l = omega[omega_l_idx];
         for &k in &observers {
             let wd_kl = wd_lookup(&state.weighted_dist, net, k as usize, l as usize);
-            let decay_kl = omega_l * params.dw_obs * (-params.alpha * wd_kl).exp()
+            let sig_scale = state.sigma[l as usize] * state.sigma[k as usize];
+            let decay_kl = omega_l * params.dw_obs * sig_scale * (-params.alpha * wd_kl).exp()
                 * (1.0 - state.epsilon[k as usize]);
             set_w(state, net, k as usize, l as usize, -decay_kl, params, dirty);
         }

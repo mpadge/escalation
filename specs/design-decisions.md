@@ -1,24 +1,26 @@
 ---
 created: 2026-06-12T12:00:00Z
 agent: claude-sonnet-4-6
-git_hash: 68110d5a1877cb909c5e6d8ba59fa7b681649936
+git_hash: c2bc665a7455f473c7f4fbe95777a3cdd8f65823
 ---
 
 # Design Decisions: Escalation Model
 
 ## Current Architecture
 
-A Rust simulation kernel generates paired (μ₀=0.4 / μ₀=0.6) runs for a
-Barabási–Albert network of agents whose escalation propensities and status
-sensitivities co-evolve with edge weights. Each agent carries two evolving traits:
-ε_i (escalation propensity) and σ_i (status sensitivity). σ_i multiplies the
-global prestige radiation weight (dw_obs) and observational learning rate (eta_obs),
-making the observational cascade strength a per-agent property. An R analysis
-pipeline wraps the binary: Morris OAT screening identifies the active parameters,
-Sobol decomposition ranks them, and a two-GP emulator (DiceKriging, Matérn-5/2,
-ARD) maps the dominant parameters across two output surfaces per stage. Stage 005
-(current) extends the kernel to the bivariate (ε, σ) model and validates it;
-the bivariate sensitivity analysis is deferred to stage 006.
+A Rust simulation kernel generates triple-paired runs — (a) mu0=0.4 / nominal
+mu_sigma, (b) mu0=0.6 / nominal mu_sigma, (c) mu0=0.4 / mu_sigma + 0.1 — sharing
+the same seed, for a Barabási–Albert network of agents whose escalation propensities
+and status sensitivities co-evolve with edge weights. Each agent carries two evolving
+traits: ε_i (escalation propensity) and σ_i (status sensitivity). σ_i multiplies
+the global prestige radiation weight (dw_obs) and observational learning rate
+(eta_obs), making the observational cascade strength a per-agent property. An R
+analysis pipeline wraps the binary: Morris OAT screening identifies the active
+parameters for both the `psi` (μ₀ sensitivity) and `psi_sigma` (μ_σ sensitivity)
+estimands, Sobol decomposition ranks their variance contributions, and a two-GP
+emulator (DiceKriging, Matérn-5/2, ARD) maps the dominant parameters. Stage 006
+completed Morris and Sobol for `psi_sigma`; GP emulation for the bivariate surface
+is deferred to Stage 007.
 
 ---
 
@@ -37,21 +39,22 @@ errors at compile time).
 ### Paired-run design (μ₀=0.4 vs μ₀=0.6, same seed)
 **Outcome:** Every design point runs two simulations with the same seed and
 differing only in μ₀. The derived quantity Ψ = (E_hi − E_lo) / 0.2 is the
-sensitivity pipeline target.
+sensitivity pipeline target. Extended in Stage 006 to triple-paired runs that
+additionally compute psi_sigma from a third simulation per seed.
 **Rationale:** Shared seed eliminates stochastic variance from the Ψ estimate;
-the normalised ratio is independent of absolute escalation level.
+the normalised ratio is independent of absolute escalation level. The same logic
+extends cleanly to psi_sigma.
 **Roads not taken:** Single-condition runs (cannot compute Ψ without pairing);
 multiple μ₀ levels (two conditions sufficient for the first-order perturbation
 question).
-**Stages:** 000
+**Stages:** 000, 006
 
 ### Reparametrisation to ratio parameters
 **Outcome:** Raw model parameters (w_win, b, e, delta_w_obs, eta_obs) are
 replaced by dimensionless ratios (r_win_cost, r_coop_exploit, kappa, etc.)
 before the sensitivity analysis.
 **Rationale:** Ratios are scale-invariant and reduce the effective parameter
-count; kappa = eta_obs / eta is theoretically motivated (relative learning
-rates).
+count; kappa = eta_obs / eta is theoretically motivated (relative learning rates).
 **Roads not taken:** Raw parameters throughout (would require wider, less
 interpretable ranges and reduce Sobol efficiency).
 **Stages:** 000
@@ -89,26 +92,30 @@ given only two conditions).
 ### Shared utility R files without stage suffixes
 **Outcome:** `gp_train_utils.R`, `gp_phase_utils.R`, `plot_utils.R` are
 sourced by all stage scripts; Stage 2 and Stage 3 scripts share code rather
-than duplicating it.
+than duplicating it. Stage 006 analysis scripts use the `_bivar` suffix
+convention for their own helper functions, remaining self-contained.
 **Rationale:** Stage-suffixed utility files would proliferate with each stage;
 a single shared file per utility class is maintainable and avoids divergence.
 **Roads not taken:** Per-stage utility copies (safer against cross-stage
 breakage but creates duplication).
-**Stages:** 003
+**Stages:** 003, 006
 
 ### Generic column-name parameters in utilities
 **Outcome:** `build_design_matrix(raw, response_col)` and
 `write_phase_csvs(..., derived_col)` accept the response column as a string,
 enabling the same utility to serve `mean_epsilon_final` (Stage 2) and
-`epsilon_k_corr_final` (Stage 3).
+`epsilon_k_corr_final` (Stage 3). Stage 006 extends this further: the binary
+now outputs both `psi` and `psi_sigma` columns, and the R scripts select the
+appropriate column explicitly.
 **Roads not taken:** Separate utility functions per response variable.
-**Stages:** 003
+**Stages:** 003, 006
 
 ### Bivariate model: σ as second agent trait
 **Outcome:** Each agent carries σ_i ∈ [0,1] (status sensitivity) in addition
 to ε_i. σ_i multiplies the global prestige radiation weight and observational
 learning rate, making cascade conductivity a per-agent property. Setting
-mu_sigma=1.0 recovers the original univariate model exactly.
+mu_sigma=1.0 / sigma_sigma=0.0 / eta_sigma=0.0 recovers the original
+univariate model exactly.
 **Rationale:** σ directly gates the observational learning pathway — the
 mechanism by which a μ₀ perturbation propagates beyond direct participants.
 This makes it the strongest lever on the bivariate estimand Ψ(θ, μ_σ).
@@ -131,6 +138,28 @@ equilibrium at which the ε–σ correlation can emerge.
 **Roads not taken:** Observer's own payoff (always zero within a timestep);
 propensity-prediction accuracy as the σ signal (requires counterfactual tracking).
 **Stages:** 005
+
+### eta_obs fixed in bivariate sensitivity analysis
+**Outcome:** `eta_obs` is excluded from the bivariate Morris/Sobol candidate
+set and fixed at its reference midpoint (0.05). The bivariate free-parameter
+set is 14 parameters (original 11 − eta_obs + 4 σ-trait parameters).
+**Rationale:** eta_obs and mu_sigma both scale the observational-learning
+pathway; simultaneous variation creates near-collinear Morris elementary-effect
+directions that cannot be resolved reliably.
+**Roads not taken:** Including eta_obs at the cost of collinearity artefacts;
+joint eta_obs × mu_sigma variation deferred to Stage 007.
+**Stages:** 006
+
+### Triple-paired run infrastructure
+**Outcome:** `run_sigma_paired` in `src/experiment.rs` runs three simulations
+per seed (mu0_lo, mu0_hi, mu0_lo + mu_sigma perturbation), computing both `psi`
+and `psi_sigma` from a single binary call. `cmd_sensitivity` now calls
+`run_sigma_paired` for all Morris and Sobol subcommands.
+**Rationale:** One extra forward run per design point is the minimum cost for
+the second estimand; shared seed cancels stochastic variance from both estimates.
+**Tradeoffs:** 50% more expensive per design point; delta_mu_sigma = 0.1
+validated by T006-3 (|psi_sigma| < 1e-3 under degenerate conditions).
+**Stages:** 006
 
 ---
 
@@ -171,8 +200,19 @@ addition of status sensitivity σ as a second evolving trait makes the
 observational cascade strength a per-agent property rather than a global
 parameter. Three validation tests confirm: (1) exact degenerate recovery with
 mu_sigma=1.0, (2) σ distribution does not collapse, (3) endogenous ε–σ
-correlation emerges positive. The full bivariate sensitivity analysis (Morris
-→ Sobol → GP with μ_σ as a control variable) is deferred to stage 006.
+correlation emerges positive.
+
+**Stage 006** ran Morris OAT screening and Sobol variance decomposition for the
+bivariate model, simultaneously computing `psi_sigma` (μ_σ sensitivity) and
+`psi` (μ₀ sensitivity with σ active) from a single binary call. Key findings:
+(a) mu_sigma and sigma_sigma lead for psi_sigma by μ*, but network structure
+parameters (lambda, dw_obs, dw_bridge, alpha) contribute substantially;
+(b) psi_sigma Sobol shows S1 ≈ 0 / ST ≈ 0.86–1.03 for all parameters —
+variance is interaction-dominated, contrasting with the univariate Ψ;
+(c) alpha re-leads for psi with σ active (μ* = 0.636), consistent with Stage 003;
+(d) recoverability Spearman ρ = 0.78 (below 0.95 threshold) attributed to
+sigma_decay=0.002 in the degenerate run; fixing to sigma_decay=0.0 is the
+identified remediation. GP emulation for psi_sigma deferred to Stage 007.
 
 ---
 
@@ -204,3 +244,11 @@ effects, preventing the original model from being recovered as a degenerate case
 (how strongly a winner projects vs. how strongly an observer receives) was
 considered but deferred as unnecessary complexity before the bivariate
 sensitivity analysis establishes which aspects of σ matter most.
+
+**eta_obs × mu_sigma joint variation** (Stage 006): excluded from the bivariate
+Morris/Sobol to avoid collinearity. Joint variation deferred to Stage 007.
+
+**sigma_decay=0.0 in degenerate recoverability run** (Stage 006): the task
+specification used sigma_decay=0.002; this caused sigma to drift during the run
+and reduced recoverability ρ to 0.78. Using sigma_decay=0.0 (as in T005-8)
+would give exact degenerate recovery and is the recommended approach.

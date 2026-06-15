@@ -8,7 +8,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-1: Add mu_sigma, sigma_sigma, eta_sigma to Params
 
-- [ ] T005-1: In `src/params.rs`, add three new fields: `mu_sigma: f64` (initial mean status
+- [x] T005-1: In `src/params.rs`, add three new fields: `mu_sigma: f64` (initial mean status
   sensitivity, default 1.0), `sigma_sigma: f64` (initial SD, default 0.2), and
   `eta_sigma: f64` (σ learning rate, default 0.05). Update `Params::default()` accordingly.
   Do NOT remove `eta_obs` or `dw_obs` — they are kept as global reference scales.

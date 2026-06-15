@@ -78,7 +78,7 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
 
 ## T006-5: Create analysis/sobol-bivar.R
 
-- [ ] T006-5: Create `analysis/sobol-bivar.R` based on `analysis/sobol.R` with the
+- [x] T006-5: Create `analysis/sobol-bivar.R` based on `analysis/sobol.R` with the
   following changes:
   - Set `results_dir <- "results"`. Use stage-specific filenames: design file
     `design_sobol_bivar.csv`, raw output `sobol_bivar_raw.csv`.

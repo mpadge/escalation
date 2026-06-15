@@ -17,7 +17,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-2: Add sigma field to SimState and initialise it
 
-- [ ] T005-2: In `src/sim.rs`, add `pub sigma: Vec<f64>` to `SimState`. In the simulation
+- [x] T005-2: In `src/sim.rs`, add `pub sigma: Vec<f64>` to `SimState`. In the simulation
   initialisation block (where `epsilon` is sampled), add an independent sample of `sigma`
   from `clip(Normal(params.mu_sigma, params.sigma_sigma), 0.0, 1.0)` using the same RNG.
   Update all `SimState` struct literals in the file (including `#[cfg(test)]` blocks) to

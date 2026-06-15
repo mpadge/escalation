@@ -12,6 +12,7 @@ const SLOW_INTERVAL: u32 = 1_000;
 pub struct SimState {
     pub w: Vec<f64>,
     pub epsilon: Vec<f64>,
+    pub sigma: Vec<f64>,
     pub payoff: Vec<f64>,
     pub weighted_dist: Vec<f64>,
     pub alias_tables: Vec<AliasTable>,
@@ -68,10 +69,15 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
         .map(|_| normal_eps.sample(&mut rng).clamp(0.0, 1.0))
         .collect();
 
+    let normal_sig = Normal::new(params.mu_sigma, params.sigma_sigma).unwrap();
+    let sigma: Vec<f64> = (0..n)
+        .map(|_| normal_sig.sample(&mut rng).clamp(0.0, 1.0))
+        .collect();
+
     let weighted_dist = compute_weighted_dist(&net, &w, params.w_min);
     let alias_tables = build_alias_tables(&net, &weighted_dist, params.alpha);
 
-    let mut state = SimState { w, epsilon, payoff: vec![0.0; n], weighted_dist, alias_tables };
+    let mut state = SimState { w, epsilon, sigma, payoff: vec![0.0; n], weighted_dist, alias_tables };
 
     let mut series = MetricSeries::new();
     let mut cc_count = 0u32;
@@ -759,7 +765,7 @@ mod tests {
         let wd = compute_weighted_dist(&net, &w, params.w_min);
         let at = build_alias_tables(&net, &wd, params.alpha);
         let mut state = SimState {
-            w, epsilon: vec![1.0_f64; n], payoff: vec![0.0; n],
+            w, epsilon: vec![1.0_f64; n], sigma: vec![1.0; n], payoff: vec![0.0; n],
             weighted_dist: wd, alias_tables: at,
         };
         let group: Vec<u32> = vec![0, 1, 2];
@@ -789,7 +795,7 @@ mod tests {
         let wd = compute_weighted_dist(&net, &w, params.w_min);
         let at = build_alias_tables(&net, &wd, params.alpha);
         let mut state = SimState {
-            w, epsilon: vec![0.0; n], payoff: vec![0.0; n],
+            w, epsilon: vec![0.0; n], sigma: vec![1.0; n], payoff: vec![0.0; n],
             weighted_dist: wd, alias_tables: at,
         };
         let group: Vec<u32> = vec![0, 1, 2];
@@ -821,7 +827,7 @@ mod tests {
         let wd = compute_weighted_dist(&net, &w, params.w_min);
         let at = build_alias_tables(&net, &wd, params.alpha);
         let mut state = SimState {
-            w, epsilon: vec![1.0; n], payoff: vec![0.0; n],
+            w, epsilon: vec![1.0; n], sigma: vec![1.0; n], payoff: vec![0.0; n],
             weighted_dist: wd, alias_tables: at,
         };
 
@@ -866,7 +872,7 @@ mod tests {
         let wd = compute_weighted_dist(&net, &w, params.w_min);
         let at = build_alias_tables(&net, &wd, params.alpha);
         let mut state = SimState {
-            w, epsilon: vec![0.5; n], payoff: vec![0.0; n],
+            w, epsilon: vec![0.5; n], sigma: vec![1.0; n], payoff: vec![0.0; n],
             weighted_dist: wd, alias_tables: at,
         };
 

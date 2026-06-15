@@ -4,7 +4,7 @@ use clap::{Args, Parser, Subcommand};
 use rayon::prelude::*;
 use escalation::{
     aggregate::{aggregate, compute_tau_psi, RunSummary},
-    experiment::{run_experiment, set_num_threads},
+    experiment::{run_experiment, run_sigma_paired, set_num_threads},
     output::{write_series, write_summaries},
     params::Params,
     sim::run_simulation,
@@ -220,23 +220,24 @@ fn cmd_sensitivity(args: SensitivityArgs, _mode: &str) {
         std::process::exit(1);
     });
 
-    // Read design matrix; each row is a parameter vector in the CSV schema of Params
+    // Read design matrix; each row is a parameter vector in the CSV schema of Params.
+    // Uses run_sigma_paired so every design point produces both psi (mu0 sensitivity)
+    // and psi_sigma (mu_sigma sensitivity) in the output CSV.
     let mut rdr = csv::Reader::from_path(&args.design).unwrap_or_else(|e| {
         eprintln!("Cannot read design file {}: {e}", args.design.display());
         std::process::exit(1);
     });
 
-    let param_pairs: Vec<(Params, Params)> = rdr
+    let designs: Vec<Params> = rdr
         .deserialize::<Params>()
         .map(|r| r.unwrap_or_else(|e| {
             eprintln!("Error reading design row: {e}");
             std::process::exit(1);
         }))
-        .map(|p| (p.with_mu0(0.4), p.with_mu0(0.6)))
         .collect();
 
     let seeds = vec![0u64];
-    let results = run_experiment(&param_pairs, &seeds, args.zeta, Some(&args.log_dir));
+    let results = run_sigma_paired(&designs, &seeds, 0.4, 0.6, 0.1, args.zeta, Some(&args.log_dir));
     let summaries: Vec<RunSummary> = results
         .iter()
         .flat_map(|(lo, hi)| [lo.clone(), hi.clone()])

@@ -91,6 +91,72 @@ pub fn run_experiment(
         .collect()
 }
 
+/// Run sigma-paired simulations for bivariate (ε, σ) sensitivity analysis.
+///
+/// For each (design, seed) triple, runs three simulations sharing the same seed:
+///   (a) mu0=mu0_lo, nominal mu_sigma
+///   (b) mu0=mu0_hi, nominal mu_sigma
+///   (c) mu0=mu0_lo, mu_sigma + delta_mu_sigma
+///
+/// Computes psi = (ε̄_b − ε̄_a) / (mu0_hi − mu0_lo) and
+/// psi_sigma = (ε̄_c − ε̄_a) / delta_mu_sigma.
+/// Both fields are populated on both the lo and hi RunSummary records.
+pub fn run_sigma_paired(
+    designs: &[Params],
+    seeds: &[u64],
+    mu0_lo: f64,
+    mu0_hi: f64,
+    delta_mu_sigma: f64,
+    zeta: f64,
+    log_dir: Option<&std::path::Path>,
+) -> Vec<(RunSummary, RunSummary)> {
+    let log_dir: Option<Arc<std::path::PathBuf>> = log_dir.map(|p| Arc::new(p.to_owned()));
+
+    designs
+        .par_iter()
+        .enumerate()
+        .flat_map(|(design_idx, base)| {
+            let log_dir = log_dir.clone();
+            seeds.par_iter().map(move |&seed| {
+                let p_lo = base.with_mu0(mu0_lo);
+                let p_hi = base.with_mu0(mu0_hi);
+                let p_sigma = base.with_mu0(mu0_lo).with_mu_sigma(base.mu_sigma + delta_mu_sigma);
+
+                let series_lo = run_simulation(&p_lo, seed);
+                let series_hi = run_simulation(&p_hi, seed);
+                let series_sigma = run_simulation(&p_sigma, seed);
+
+                let tau = compute_tau_psi(&series_lo, &series_hi, zeta);
+                let mut lo = aggregate(series_lo, &p_lo, seed);
+                let mut hi = aggregate(series_hi, &p_hi, seed);
+                let eps_sigma = aggregate(series_sigma, &p_sigma, seed).mean_epsilon_final;
+
+                let psi = (hi.mean_epsilon_final - lo.mean_epsilon_final) / (mu0_hi - mu0_lo);
+                let psi_sigma = (eps_sigma - lo.mean_epsilon_final) / delta_mu_sigma;
+
+                lo.psi = Some(psi);
+                hi.psi = Some(psi);
+                lo.tau_psi = Some(tau);
+                hi.tau_psi = Some(tau);
+                lo.psi_sigma = Some(psi_sigma);
+                hi.psi_sigma = Some(psi_sigma);
+
+                if let Some(ref dir) = log_dir {
+                    let path = dir.as_ref().join(format!("{design_idx:06}_{seed:04}.done"));
+                    let _ = std::fs::write(
+                        &path,
+                        format!(
+                            "psi={psi:.6}\npsi_sigma={psi_sigma:.6}\nseed={seed}\npair={design_idx}\n"
+                        ),
+                    );
+                }
+
+                (lo, hi)
+            })
+        })
+        .collect()
+}
+
 /// Run unpaired diagnostic simulations in parallel (single μ₀, no psi computation).
 pub fn run_diagnostic(params: &Params, seeds: &[u64]) -> Vec<RunSummary> {
     seeds
@@ -148,6 +214,35 @@ mod tests {
             assert!(s.mean_epsilon_final.is_finite(), "mean_epsilon_final non-finite");
             assert!(s.epsilon_auc.is_finite(), "epsilon_auc non-finite");
             assert!(s.epsilon_slope.is_finite(), "epsilon_slope non-finite");
+        }
+    }
+
+    #[test]
+    fn psi_sigma_zero_in_degenerate_case() {
+        // With sigma_sigma=0, eta_sigma=0, sigma_decay=0: all agents have fixed
+        // sigma_i = mu_sigma throughout. When all sigmas are identical, perturbing
+        // mu_sigma scales the observational pathway uniformly for all agents, leaving
+        // the equilibrium epsilon distribution invariant (same fixed point, faster/slower
+        // convergence). psi_sigma should be negligible over t_max=500 steps.
+        let mut base = tiny_params();
+        base.n = 30;
+        base.t_max = 500;
+        base.mu_sigma = 1.0;
+        base.sigma_sigma = 0.0;
+        base.eta_sigma = 0.0;
+        base.sigma_decay = 0.0;
+
+        let designs = vec![base];
+        let seeds: Vec<u64> = (0..5).collect();
+        let results = run_sigma_paired(&designs, &seeds, 0.4, 0.6, 0.1, 0.05, None);
+
+        for (lo, _hi) in &results {
+            let ps = lo.psi_sigma.expect("psi_sigma should be Some in sigma-paired run");
+            assert!(
+                ps.abs() < 1e-3,
+                "psi_sigma={ps:.6} should be ~0 in degenerate σ case \
+                 (sigma_sigma=0, eta_sigma=0, sigma_decay=0)"
+            );
         }
     }
 }

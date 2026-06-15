@@ -8,7 +8,7 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
 
 ## T006-1: Implement run_sigma_paired in experiment.rs
 
-- [ ] T006-1: Add `run_sigma_paired(params, delta_mu_sigma, seeds, zeta, log_dir)` to
+- [x] T006-1: Add `run_sigma_paired(params, delta_mu_sigma, seeds, zeta, log_dir)` to
   `src/experiment.rs`. For each seed, run three simulations sharing the same seed:
   (a) nominal mu_sigma at mu0=mu0_lo, (b) nominal mu_sigma at mu0=mu0_hi,
   (c) mu_sigma + delta_mu_sigma at mu0=mu0_lo. Compute
@@ -24,7 +24,7 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
 
 ## T006-2: Extend cmd_sensitivity to emit psi_sigma in output CSV
 
-- [ ] T006-2: In `src/main.rs`, replace the `run_pairs_parallel` call inside
+- [x] T006-2: In `src/main.rs`, replace the `run_pairs_parallel` call inside
   `cmd_sensitivity` with a call to `run_sigma_paired` (T006-1), which produces the
   same paired output plus the populated `psi_sigma` field. Verify that
   `src/output.rs` `write_summaries` already writes the `psi_sigma` column (it should,
@@ -37,7 +37,7 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
 
 ## T006-3: Validation test T006-1 — psi_sigma = 0 in degenerate case
 
-- [ ] T006-3: Add a `#[test]` in `src/experiment.rs` (alongside the existing
+- [x] T006-3: Add a `#[test]` in `src/experiment.rs` (alongside the existing
   `integration_10_pairs_csv_20_rows` test) that runs `run_sigma_paired` with
   `eta_sigma = 0.0` and `sigma_sigma = 0.0` (degenerate σ case: agents have fixed
   σ = mu_sigma = 1.0, no learning). Assert that `|psi_sigma| < 1e-3` for each seed
@@ -48,7 +48,7 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
 
 ## T006-4: Create analysis/morris-bivar.R
 
-- [ ] T006-4: Create `analysis/morris-bivar.R` based on `analysis/morris.R` with the
+- [x] T006-4: Create `analysis/morris-bivar.R` based on `analysis/morris.R` with the
   following changes:
   - Set `results_dir <- "results"`. Use stage-specific filenames: design file
     `design_morris_bivar.csv`, raw output `morris_bivar_raw.csv`.

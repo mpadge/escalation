@@ -1,4 +1,5 @@
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Params {
     pub n: usize,
     pub gamma: f64,
@@ -103,6 +104,12 @@ impl Params {
     pub fn with_mu0(&self, mu0: f64) -> Self {
         let mut p = self.clone();
         p.mu0 = mu0;
+        p
+    }
+
+    pub fn with_mu_sigma(&self, mu_sigma: f64) -> Self {
+        let mut p = self.clone();
+        p.mu_sigma = mu_sigma;
         p
     }
 }

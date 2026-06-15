@@ -106,7 +106,7 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
 
 ## T006-6: Create analysis/recover-bivar.R
 
-- [ ] T006-6: Create `analysis/recover-bivar.R`. This script runs the Morris binary
+- [x] T006-6: Create `analysis/recover-bivar.R`. This script runs the Morris binary
   with σ fixed at degenerate values and compares the resulting Ψ rankings to the
   stage 000/001 Morris results in `results/morris_results.csv`, showing that stage 004
   report results are fully recoverable from the bivariate binary.

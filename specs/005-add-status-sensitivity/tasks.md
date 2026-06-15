@@ -59,7 +59,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-6: Add mean_sigma and epsilon_sigma_corr to MetricSeries
 
-- [ ] T005-6: In `src/sim.rs`, add fields `mean_sigma: Vec<f64>` and
+- [x] T005-6: In `src/sim.rs`, add fields `mean_sigma: Vec<f64>` and
   `epsilon_sigma_corr: Vec<f64>` to `MetricSeries`, with matching initialisations in the
   `MetricSeries` constructor. In the metrics recording block (the `if t % RECORD_INTERVAL == 0`
   branch), compute `mean_sigma` as the arithmetic mean of `state.sigma`, and

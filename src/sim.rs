@@ -29,6 +29,8 @@ pub struct MetricSeries {
     pub regime_dist: Vec<[f64; 3]>,
     pub modularity: Vec<f64>,
     pub rich_club: Vec<f64>,
+    pub mean_sigma: Vec<f64>,
+    pub epsilon_sigma_corr: Vec<f64>,
 }
 
 impl MetricSeries {
@@ -43,6 +45,8 @@ impl MetricSeries {
             regime_dist: Vec::new(),
             modularity: Vec::new(),
             rich_club: Vec::new(),
+            mean_sigma: Vec::new(),
+            epsilon_sigma_corr: Vec::new(),
         }
     }
 }
@@ -198,6 +202,9 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
                 )
             };
 
+            let (mean_s, _) = mean_var(&state.sigma);
+            let eps_sig_corr = pearson_corr(&state.epsilon, &state.sigma);
+
             series.t.push(t + 1);
             series.mean_epsilon.push(mean_e);
             series.var_epsilon.push(var_e);
@@ -207,6 +214,8 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
             series.regime_dist.push(regime);
             series.modularity.push(mod_q);
             series.rich_club.push(rc);
+            series.mean_sigma.push(mean_s);
+            series.epsilon_sigma_corr.push(eps_sig_corr);
         }
     }
 

@@ -21,7 +21,7 @@ pub fn write_series(dir: &Path, summary: &RunSummary, series: &MetricSeries) -> 
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     wtr.write_record(["t", "mean_epsilon", "var_epsilon", "gini_k",
         "epsilon_k_corr", "mean_edge_weight", "regime_cc", "regime_x", "regime_ck",
-        "modularity", "rich_club"])
+        "modularity", "rich_club", "mean_sigma", "epsilon_sigma_corr"])
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     for i in 0..series.t.len() {
         wtr.write_record(&[
@@ -36,6 +36,8 @@ pub fn write_series(dir: &Path, summary: &RunSummary, series: &MetricSeries) -> 
             series.regime_dist[i][2].to_string(),
             series.modularity[i].to_string(),
             series.rich_club[i].to_string(),
+            series.mean_sigma[i].to_string(),
+            series.epsilon_sigma_corr[i].to_string(),
         ]).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     }
     wtr.flush()

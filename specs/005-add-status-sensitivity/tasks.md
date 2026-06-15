@@ -68,7 +68,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-7: Add sigma summary fields to RunSummary, aggregate, and CSV output
 
-- [ ] T005-7: In `src/aggregate.rs`, add four fields to `RunSummary`:
+- [x] T005-7: In `src/aggregate.rs`, add four fields to `RunSummary`:
   `mean_sigma_final: f64`, `var_sigma_final: f64`, `epsilon_sigma_corr_final: f64`, and
   `psi_sigma: Option<f64>` (sensitivity of ε̄(∞) to μ_σ perturbation, populated by paired
   runs, analogous to `psi`). In `aggregate()`, compute the first three from the tail of the

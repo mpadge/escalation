@@ -36,9 +36,14 @@ pub struct RunSummary {
     pub epsilon_slope: f64,
     pub gini_peak: f64,
     pub t_gini_peak: u32,
+    // Sigma trait summary
+    pub mean_sigma_final: f64,
+    pub var_sigma_final: f64,
+    pub epsilon_sigma_corr_final: f64,
     // Paired-run metrics (None for unpaired runs)
     pub psi: Option<f64>,
     pub tau_psi: Option<u32>,
+    pub psi_sigma: Option<f64>,
 }
 
 /// Collapse a MetricSeries into a RunSummary.
@@ -58,6 +63,15 @@ pub fn aggregate(series: MetricSeries, params: &Params, seed: u64) -> RunSummary
     let gini_k_final = tail_mean(&series.gini_k);
     let epsilon_k_corr_final = tail_mean(&series.epsilon_k_corr);
     let rich_club_final = tail_mean(&series.rich_club);
+    let mean_sigma_final = tail_mean(&series.mean_sigma);
+    let var_sigma_final = {
+        let tail = &series.mean_sigma[tail_start..];
+        if tail.is_empty() { 0.0 } else {
+            let m = tail.iter().sum::<f64>() / tail.len() as f64;
+            tail.iter().map(|&x| (x - m).powi(2)).sum::<f64>() / tail.len() as f64
+        }
+    };
+    let epsilon_sigma_corr_final = tail_mean(&series.epsilon_sigma_corr);
 
     let regime_final = {
         let tail = &series.regime_dist[tail_start..];
@@ -114,8 +128,12 @@ pub fn aggregate(series: MetricSeries, params: &Params, seed: u64) -> RunSummary
         epsilon_slope,
         gini_peak,
         t_gini_peak,
+        mean_sigma_final,
+        var_sigma_final,
+        epsilon_sigma_corr_final,
         psi: None,
         tau_psi: None,
+        psi_sigma: None,
     }
 }
 
@@ -173,6 +191,8 @@ mod tests {
             regime_dist: vec![[1.0, 0.0, 0.0]; n as usize],
             modularity: vec![0.0; n as usize],
             rich_club: vec![0.0; n as usize],
+            mean_sigma: vec![1.0; n as usize],
+            epsilon_sigma_corr: vec![0.0; n as usize],
         }
     }
 

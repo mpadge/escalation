@@ -115,7 +115,8 @@ Add a short `analysis/recover-bivar.R` that:
 1. Runs the Morris binary with the full parameter set but mu_sigma=1.0,
    sigma_sigma=0.0, eta_sigma=0.0 fixed
 2. Computes Morris indices using psi (Ψ) as output
-3. Loads the stage 000/001 Morris results from `results/morris_results.csv`
+3. Loads the stage 000/001 Morris results from
+   `results/003-centrality-correlation/morris_results.csv` (archived location)
    and overlays the μ* rankings in a side-by-side table
 4. Reports rank correlation between stage 000/001 and degenerate-σ stage 006 rankings
 
@@ -135,7 +136,7 @@ results/
   morris_bivar_results_psi.csv        # Morris μ*, σ ranked by Ψ metric (σ active)
   design_morris_bivar_degen.csv    # Morris design for degenerate σ-fixed run
   morris_bivar_raw_degen.csv       # Raw binary output for degenerate run
-  recover_bivar_comparison.csv     # Rank comparison: stage 000/001 vs degenerate stage 006
+  recover_bivar_comparison.csv     # Rank comparison: archived stage 000/001 vs degenerate stage 006
   design_sobol_bivar.csv           # Saltelli design for psi_sigma Sobol
   sobol_bivar_raw.csv              # Raw Sobol binary output
   sobol_bivar_results.csv          # Sobol S1 and ST for psi_sigma

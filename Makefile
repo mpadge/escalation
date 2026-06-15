@@ -1,6 +1,6 @@
 #!/usr/bin/make
 
-.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3 gp3_phase plots3 doc
+.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3 gp3_phase plots3 doc morris-bivar sobol-bivar recover-bivar
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
@@ -56,6 +56,15 @@ gp3_phase: ## Generate two-GP phase diagrams for C_lo, C_hi, and difference surf
 
 plots3: ## Generate Stage 3 phase diagram plots
 	Rscript analysis/plot3.R
+
+morris-bivar: release ## Run bivariate Morris screening — Stage 6 (analysis/morris-bivar.R)
+	Rscript analysis/morris-bivar.R
+
+sobol-bivar: release ## Run bivariate Sobol analysis — Stage 6, requires morris-bivar (analysis/sobol-bivar.R)
+	Rscript analysis/sobol-bivar.R
+
+recover-bivar: release ## Run degenerate-σ recoverability check — Stage 6 (analysis/recover-bivar.R)
+	Rscript analysis/recover-bivar.R
 
 ##@ Documentation
 

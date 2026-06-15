@@ -17,7 +17,13 @@ done
 for d in results/gp_phase results/plots; do
     [ -d "$d" ] && mv "$d" "$dest/"
 done
+for d in results/gp_phase2 results/plots; do
+    [ -d "$d" ] && mv "$d" "$dest/"
+done
+for d in results/gp_phase3 results/plots; do
+    [ -d "$d" ] && mv "$d" "$dest/"
+done
 
-tar -czf "${dest}.tar.gz" -C results "$phase"
-rm -rf "$dest"
-echo "Archived to ${dest}.tar.gz"
+# tar -czf "${dest}.tar.gz" -C results "$phase"
+# rm -rf "$dest"
+# echo "Archived to ${dest}.tar.gz"

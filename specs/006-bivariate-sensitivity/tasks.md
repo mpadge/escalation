@@ -83,7 +83,7 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
   - Set `results_dir <- "results"`. Use stage-specific filenames: design file
     `design_sobol_bivar.csv`, raw output `sobol_bivar_raw.csv`.
   - Read top parameters from `results/morris_bivar_results_psi_sigma.csv` (written
-    by the `make morris-bivar` run) instead of `morris_results.csv`. Use the same
+    by the `make morris-bivar` run) instead of the archived `morris_results.csv`. Use the same
     `select_sobol_params` logic (top_n from the μ* ranking; eta_obs excluded from
     the candidate set since it was not screened). Internal helper functions follow
     the `_bivar` suffix convention (e.g. `select_sobol_params_bivar`,
@@ -117,8 +117,10 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
   - Use the original 11 `param_names` from `morris.R` (no σ params varied).
   - Run the Morris binary (r = 15 trajectories) and compute Morris indices using the
     `psi` column (Ψ) as output.
-  - Load stage 000/001 Morris results from `results/morris_results.csv`. Compute
-    Spearman rank correlation between the μ* vectors.
+  - Load stage 000/001 Morris results from
+    `results/003-centrality-correlation/morris_results.csv` (the archived location
+    after the most recent `make archive` run). Compute Spearman rank correlation
+    between the μ* vectors.
   - Write `results/recover_bivar_comparison.csv` with columns: parameter,
     mu_star_000, mu_star_006_degen, rank_000, rank_006_degen.
   - Print the Spearman ρ to stdout. A value ≥ 0.95 confirms recoverability.

@@ -1,7 +1,7 @@
 ---
 created: 2026-06-12T12:00:00Z
 agent: claude-sonnet-4-6
-git_hash: 62e5417c3c237b354a05ea95dbab9c941f65edb5
+git_hash: 68110d5a1877cb909c5e6d8ba59fa7b681649936
 ---
 
 # Design Decisions: Escalation Model
@@ -9,16 +9,16 @@ git_hash: 62e5417c3c237b354a05ea95dbab9c941f65edb5
 ## Current Architecture
 
 A Rust simulation kernel generates paired (μ₀=0.4 / μ₀=0.6) runs for a
-Barabási–Albert network of agents whose escalation propensities co-evolve with
-edge weights. An R analysis pipeline wraps the binary: Morris OAT screening
-identifies the active parameters, Sobol decomposition ranks them, and a
-two-GP emulator (DiceKriging, Matérn-5/2, ARD) maps the four dominant
-parameters (alpha, gamma, lambda, eta_obs) across two output surfaces per
-stage. Phase diagrams visualise pairwise slices; each stage adds a new
-response variable. Stage 3 (current) uses `epsilon_k_corr_final` — the
-Pearson correlation between escalation propensity and weighted in-degree at
-quasi-equilibrium — as the GP response, alongside the Stage 2 absolute
-escalation surfaces.
+Barabási–Albert network of agents whose escalation propensities and status
+sensitivities co-evolve with edge weights. Each agent carries two evolving traits:
+ε_i (escalation propensity) and σ_i (status sensitivity). σ_i multiplies the
+global prestige radiation weight (dw_obs) and observational learning rate (eta_obs),
+making the observational cascade strength a per-agent property. An R analysis
+pipeline wraps the binary: Morris OAT screening identifies the active parameters,
+Sobol decomposition ranks them, and a two-GP emulator (DiceKriging, Matérn-5/2,
+ARD) maps the dominant parameters across two output surfaces per stage. Stage 005
+(current) extends the kernel to the bivariate (ε, σ) model and validates it;
+the bivariate sensitivity analysis is deferred to stage 006.
 
 ---
 
@@ -104,6 +104,34 @@ enabling the same utility to serve `mean_epsilon_final` (Stage 2) and
 **Roads not taken:** Separate utility functions per response variable.
 **Stages:** 003
 
+### Bivariate model: σ as second agent trait
+**Outcome:** Each agent carries σ_i ∈ [0,1] (status sensitivity) in addition
+to ε_i. σ_i multiplies the global prestige radiation weight and observational
+learning rate, making cascade conductivity a per-agent property. Setting
+mu_sigma=1.0 recovers the original univariate model exactly.
+**Rationale:** σ directly gates the observational learning pathway — the
+mechanism by which a μ₀ perturbation propagates beyond direct participants.
+This makes it the strongest lever on the bivariate estimand Ψ(θ, μ_σ).
+Alternative second dimensions (bond/bridge orientation β, reciprocity ρ)
+act more indirectly on network topology and were rejected.
+**Roads not taken:** Retiring eta_obs/dw_obs entirely (Option B) — rejected
+because mu_sigma=0 would produce zero observational effects rather than
+original-model behaviour; retiring globals as scales creates the clean
+mu_sigma=1.0 degenerate baseline. Split σ_emit/σ_recv — deferred as
+unnecessary complexity at this stage.
+**Stages:** 005
+
+### σ reinforcement via vicarious winner payoff + sigma_decay
+**Outcome:** Non-participant observers update σ by sign(winner_payoff_delta) ·
+eta_sigma. A global sigma_decay (default 0.002) prevents saturation at 1.0.
+**Rationale:** Observer payoff does not change within a single timestep, so the
+winner's payoff gain is the tractable vicarious reinforcement proxy. Without
+decay, σ drifts monotonically to 1.0 (confirmed empirically). Decay creates the
+equilibrium at which the ε–σ correlation can emerge.
+**Roads not taken:** Observer's own payoff (always zero within a timestep);
+propensity-prediction accuracy as the σ signal (requires counterfactual tracking).
+**Stages:** 005
+
 ---
 
 ## Architectural Evolution
@@ -127,13 +155,24 @@ enabling variable for amplification despite having long ARD length scales in
 both individual surfaces.
 
 **Stage 003** extended the two-GP pipeline to a second response variable:
-`epsilon_k_corr_final`. The shared utilities extracted from Stage 2 scripts
-were parameterised by response column name and sourced by both stages. The
-central finding is a dissociation: the gamma×lambda amplification regime
-(Stage 2) is exactly the regime where increased μ₀ reduces individual-level
-centrality concentration (Stage 3). The two phenomena are driven by different
-parameters — lambda for population-level dynamics, alpha for individual-level
-network position.
+`epsilon_k_corr_final`. The central finding is a dissociation: the gamma×lambda
+amplification regime (Stage 2) is exactly the regime where increased μ₀ reduces
+individual-level centrality concentration. The two phenomena are driven by
+different parameters — lambda for population-level dynamics, alpha for
+individual-level network position.
+
+**Stage 004** produced the final report (`docs/report.md`) synthesising Stages
+000–003 into a coherent narrative around two findings: dampened amplification
+except in small-group / local-influence configurations, and the dissociation
+between population-level spread and individual power concentration.
+
+**Stage 005** extended the Rust kernel to a bivariate (ε, σ) model. The
+addition of status sensitivity σ as a second evolving trait makes the
+observational cascade strength a per-agent property rather than a global
+parameter. Three validation tests confirm: (1) exact degenerate recovery with
+mu_sigma=1.0, (2) σ distribution does not collapse, (3) endogenous ε–σ
+correlation emerges positive. The full bivariate sensitivity analysis (Morris
+→ Sobol → GP with μ_σ as a control variable) is deferred to stage 006.
 
 ---
 
@@ -150,11 +189,18 @@ high-uncertainty regions. Not needed after the nugget-estimation fix resolved
 the GP collapse; validation RMSEs were acceptable without refinement.
 
 **High-resolution alpha×lambda boundary mapping** (deferred from Stage 002):
-the phase diagrams identify the Ψ = 1 contour at 50×50 resolution; a
-targeted 100×100 grid over this pair would map the amplification boundary
-precisely. Deferred to a future stage.
+the phase diagrams identify the Ψ = 1 contour at 50×50 resolution; a targeted
+100×100 grid would map the amplification boundary precisely. Deferred.
 
-**Normalised difference surface for Stage 3**: the Stage 2 Ψ is normalised by
-the μ₀ step (0.2). For Stage 3, the raw difference C_hi − C_lo was used
-instead, since both correlation surfaces are on the same [−1, 1] scale and
-normalisation would reduce interpretability.
+**Normalised difference surface for Stage 3**: raw C_hi − C_lo was used rather
+than normalising by the μ₀ step, since both correlation surfaces are already
+on the same [−1, 1] scale.
+
+**Retiring eta_obs/dw_obs entirely** (Stage 005): proposed to simplify the
+parameter space but rejected; mu_sigma=0 would suppress all observational
+effects, preventing the original model from being recovered as a degenerate case.
+
+**Split σ_emit/σ_recv** (Stage 005): a two-component status sensitivity
+(how strongly a winner projects vs. how strongly an observer receives) was
+considered but deferred as unnecessary complexity before the bivariate
+sensitivity analysis establishes which aspects of σ matter most.

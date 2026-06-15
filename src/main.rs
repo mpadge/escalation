@@ -312,6 +312,7 @@ fn cmd_gp_train(args: GpTrainArgs) {
     for (pair_idx, design_row) in designs.iter().enumerate().skip(completed) {
         let p_lo = design_row.with_mu0(0.4);
         let p_hi = design_row.with_mu0(0.6);
+        let p_sigma = design_row.with_mu0(0.4).with_mu_sigma(design_row.mu_sigma + 0.1);
         let log_dir = &args.log_dir;
         let zeta = args.zeta;
 
@@ -321,19 +322,26 @@ fn cmd_gp_train(args: GpTrainArgs) {
             .map(|&seed| {
                 let series_lo = run_simulation(&p_lo, seed);
                 let series_hi = run_simulation(&p_hi, seed);
+                let series_sigma = run_simulation(&p_sigma, seed);
                 let tau = compute_tau_psi(&series_lo, &series_hi, zeta);
                 let mut lo = aggregate(series_lo, &p_lo, seed);
                 let mut hi = aggregate(series_hi, &p_hi, seed);
+                let eps_sigma = aggregate(series_sigma, &p_sigma, seed).mean_epsilon_final;
                 let psi = (hi.mean_epsilon_final - lo.mean_epsilon_final)
                     / (p_hi.mu0 - p_lo.mu0);
+                let psi_sigma = (eps_sigma - lo.mean_epsilon_final) / 0.1;
                 lo.psi = Some(psi);
                 hi.psi = Some(psi);
                 lo.tau_psi = Some(tau);
                 hi.tau_psi = Some(tau);
+                lo.psi_sigma = Some(psi_sigma);
+                hi.psi_sigma = Some(psi_sigma);
                 let path = log_dir.join(format!("{pair_idx:06}_{seed:04}.done"));
                 let _ = std::fs::write(
                     &path,
-                    format!("psi={psi:.6}\nseed={seed}\npair={pair_idx}\n"),
+                    format!(
+                        "psi={psi:.6}\npsi_sigma={psi_sigma:.6}\nseed={seed}\npair={pair_idx}\n"
+                    ),
                 );
                 (lo, hi)
             })

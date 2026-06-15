@@ -1,6 +1,6 @@
 #!/usr/bin/make
 
-.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3 gp3_phase plots3 doc morris-bivar sobol-bivar recover-bivar
+.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3 gp3_phase plots3 doc morris-bivar sobol-bivar recover-bivar gp-train-bivar gp-phase-bivar plots-bivar
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
@@ -65,6 +65,15 @@ sobol-bivar: release ## Run bivariate Sobol analysis — Stage 6, requires morri
 
 recover-bivar: release ## Run degenerate-σ recoverability check — Stage 6 (analysis/recover-bivar.R)
 	Rscript analysis/recover-bivar.R
+
+gp-train-bivar: release ## Train GP emulators for bivariate model — Stage 7 (analysis/gp_train_bivar.R)
+	Rscript analysis/gp_train_bivar.R
+
+gp-phase-bivar: release ## Generate bivariate GP phase diagrams — Stage 7 (analysis/gp_phase_bivar.R)
+	Rscript analysis/gp_phase_bivar.R
+
+plots-bivar: ## Generate bivariate phase diagram plots — Stage 7 (analysis/plot_bivar.R)
+	Rscript analysis/plot_bivar.R
 
 ##@ Documentation
 

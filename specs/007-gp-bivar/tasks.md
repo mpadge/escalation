@@ -8,7 +8,7 @@ git_hash: 098e58efda64444ac9bafac5f0c763406661090d
 
 ## T007-1: Extend cmd_gp_train to emit psi_sigma
 
-- [ ] T007-1: In `src/main.rs`, replace the inline lo/hi simulation loop inside
+- [x] T007-1: In `src/main.rs`, replace the inline lo/hi simulation loop inside
   `cmd_gp_train` with a call to `run_sigma_paired` (from `src/experiment.rs`),
   passing a single-element slice `&[design_row]` and the full seeds slice. This
   runs three simulations per seed — (a) mu0=0.4 / nominal mu_sigma, (b) mu0=0.6
@@ -23,7 +23,7 @@ git_hash: 098e58efda64444ac9bafac5f0c763406661090d
 
 ## T007-2: Create analysis/gp_train_bivar.R
 
-- [ ] T007-2: Create `analysis/gp_train_bivar.R` based on `analysis/gp_train.R`
+- [x] T007-2: Create `analysis/gp_train_bivar.R` based on `analysis/gp_train.R`
   with the following changes:
   - `param_names`: the 6 bivariate Sobol parameters in Morris μ* order:
     `mu_sigma`, `lambda`, `sigma_sigma`, `dw_obs`, `dw_bridge`, `alpha`.

@@ -36,7 +36,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-4: Scale observer propensity update by sigma_k
 
-- [ ] T005-4: In `src/sim.rs`, find both locations where observer propensity updates use
+- [x] T005-4: In `src/sim.rs`, find both locations where observer propensity updates use
   `params.eta_obs`:
   (a) Inside `update_propensities` for group members: `params.eta * r[idx] + params.eta_obs * o[idx]`
   — change to `params.eta * r[idx] + params.eta_obs * state.sigma[i as usize] * o[idx]`.

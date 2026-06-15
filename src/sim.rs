@@ -613,7 +613,7 @@ fn update_propensities(
     let normal = Normal::new(0.0, params.sigma_drift).unwrap();
     for (idx, &i) in group.iter().enumerate() {
         let xi: f64 = normal.sample(rng);
-        let delta = params.eta * r[idx] + params.eta_obs * o[idx] + xi;
+        let delta = params.eta * r[idx] + params.eta_obs * state.sigma[i as usize] * o[idx] + xi;
         state.epsilon[i as usize] = (state.epsilon[i as usize] + delta).clamp(0.0, 1.0);
     }
 }
@@ -635,7 +635,7 @@ fn update_observer_propensities(
         let wd = wd_lookup(&state.weighted_dist, net, k as usize, winner as usize);
         let weight = (-params.alpha * wd).exp();
         let o_k = if state.epsilon[k as usize] > 0.5 { 1.0 } else { -1.0 };
-        updates.push((k as usize, params.eta_obs * o_k * weight));
+        updates.push((k as usize, params.eta_obs * state.sigma[k as usize] * o_k * weight));
     }
     for (i, delta) in updates {
         state.epsilon[i] = (state.epsilon[i] + delta).clamp(0.0, 1.0);

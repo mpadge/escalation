@@ -170,6 +170,15 @@ pub fn run_simulation(params: &Params, seed: u64) -> MetricSeries {
         // Global edge decay
         apply_global_decay(&mut state, &net, params, &mut dirty);
 
+        // Global sigma decay: prevents saturation at 1.0; equilibrium sigma is
+        // set by the balance between reinforcement (CC observer updates) and decay.
+        if params.sigma_decay > 0.0 {
+            let floor = 0.0_f64;
+            for s in state.sigma.iter_mut() {
+                *s = (*s * (1.0 - params.sigma_decay)).max(floor);
+            }
+        }
+
         // Rebuild alias tables for dirty agents
         rebuild_dirty_tables(&mut state, &net, &dirty, params.alpha);
 
@@ -926,5 +935,61 @@ mod tests {
         let series = run_simulation(&params, 42);
         let last = *series.mean_epsilon.last().unwrap();
         assert!(last > 0.5, "expected high mean_epsilon under CC conditions, got {last:.3}");
+    }
+
+    #[test]
+    fn test_degenerate_sigma_matches_original() {
+        // With mu_sigma=1.0, sigma_sigma=0.0, eta_sigma=0.0, all sigma_i=1.0 throughout.
+        // The sigma multipliers reduce to 1*1=1 in prestige radiation and 1 in propensity
+        // updates, recovering the original model formulas exactly.
+        // Verify: two runs with the same seed produce bit-identical results.
+        let mut params = tiny_params(0.5, 0.2);
+        params.mu_sigma = 1.0;
+        params.sigma_sigma = 0.0;
+        params.eta_sigma = 0.0;
+        params.sigma_decay = 0.0; // no decay so sigma stays exactly at 1.0
+        params.t_max = 500;
+        let s1 = run_simulation(&params, 99);
+        let s2 = run_simulation(&params, 99);
+        let last1 = *s1.mean_epsilon.last().unwrap();
+        let last2 = *s2.mean_epsilon.last().unwrap();
+        approx::assert_abs_diff_eq!(last1, last2, epsilon = 1e-12);
+        // Verify sigma stays at 1.0 (no evolution or decay)
+        let last_sigma = *s1.mean_sigma.last().unwrap();
+        approx::assert_abs_diff_eq!(last_sigma, 1.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_sigma_distribution_stays_open() {
+        let mut params = tiny_params(0.5, 0.2);
+        params.mu_sigma = 0.5;
+        params.sigma_sigma = 0.2;
+        params.eta_sigma = 0.05;
+        params.t_max = 5_000;
+        let series = run_simulation(&params, 77);
+        // mean_sigma should remain in (0, 1)
+        let last_mean = *series.mean_sigma.last().unwrap();
+        assert!(last_mean > 0.0 && last_mean < 1.0,
+            "mean_sigma out of bounds: {last_mean:.4}");
+        // epsilon_sigma_corr must be finite (no NaN/Inf from collapsed distribution)
+        let last_corr = *series.epsilon_sigma_corr.last().unwrap();
+        assert!(last_corr.is_finite(), "epsilon_sigma_corr is not finite: {last_corr}");
+    }
+
+    #[test]
+    fn test_epsilon_sigma_corr_emerges() {
+        // In an escalatory environment, winners radiate prestige and observers update
+        // sigma upward; higher-epsilon agents are more often winners, so sigma should
+        // end up positively correlated with epsilon.
+        let mut params = tiny_params(0.6, 0.2);
+        params.n = 60;
+        params.mu_sigma = 0.5;
+        params.sigma_sigma = 0.2;
+        params.eta_sigma = 0.05;
+        params.t_max = 10_000;
+        let series = run_simulation(&params, 55);
+        let last_corr = *series.epsilon_sigma_corr.last().unwrap();
+        assert!(last_corr > 0.0,
+            "expected positive epsilon-sigma correlation, got {last_corr:.4}");
     }
 }

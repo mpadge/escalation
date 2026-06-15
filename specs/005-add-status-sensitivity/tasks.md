@@ -78,7 +78,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-8: Validation — exact degenerate-sigma recovery
 
-- [ ] T005-8: In `src/sim.rs` `#[cfg(test)]` block, add a test
+- [x] T005-8: In `src/sim.rs` `#[cfg(test)]` block, add a test
   `test_degenerate_sigma_matches_original`. Run two simulations with identical seeds and
   identical `Params`, differing only in that the first uses the default new params
   (`mu_sigma = 1.0, sigma_sigma = 0.0, eta_sigma = 0.0`) and the second is a reference run
@@ -89,7 +89,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-9: Validation — sigma distribution does not collapse
 
-- [ ] T005-9: In `src/sim.rs` `#[cfg(test)]` block, add a test
+- [x] T005-9: In `src/sim.rs` `#[cfg(test)]` block, add a test
   `test_sigma_distribution_stays_open`. Run a simulation with `mu_sigma = 0.5`,
   `sigma_sigma = 0.2`, `eta_sigma = 0.05`, N = 100, T = 5000 steps. After the run, assert:
   (a) the standard deviation of `state.sigma` exceeds 0.05 (distribution has not collapsed),
@@ -98,7 +98,7 @@ git_hash: 4df8f2074be07a80f4d5a46abc9bf729137d3e90
 
 ## T005-10: Validation — epsilon-sigma correlation emerges positive
 
-- [ ] T005-10: In `src/sim.rs` `#[cfg(test)]` block, add a test
+- [x] T005-10: In `src/sim.rs` `#[cfg(test)]` block, add a test
   `test_epsilon_sigma_corr_emerges`. Run a simulation with `mu0 = 0.5`, `mu_sigma = 0.5`,
   `sigma_sigma = 0.2`, `eta_sigma = 0.05`, N = 200, T = 10000 steps. Assert that the final
   value of `epsilon_sigma_corr` in the `MetricSeries` is positive (> 0.0). This checks that

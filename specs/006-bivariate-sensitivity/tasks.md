@@ -98,8 +98,9 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
     - `results/plots/sobol_bivar_plot.png` (S1 / ST bar chart, same style as
       existing Sobol plots)
 
-  **After implementing this task, stop and ask the user to run `make sobol-bivar`
-  and report back with the console output before continuing to T006-6.**
+  **After implementing this task, stop and ask the user to run `make sobol-bivar`,
+  then read results directly from `results/sobol_bivar_results.csv` before
+  continuing to T006-6.**
 
 ---
 
@@ -125,7 +126,8 @@ git_hash: 5251fe6aefd0aa2ef380a90ec79c8a95ff7f1d37
     mu_star_000, mu_star_006_degen, rank_000, rank_006_degen.
   - Print the Spearman ρ to stdout. A value ≥ 0.95 confirms recoverability.
 
-  **After implementing this task, stop and ask the user to run `make recover-bivar`
-  and report back with the console output and the printed Spearman ρ.**
+  **After implementing this task, stop and ask the user to run `make recover-bivar`,
+  then read results directly from `results/recover_bivar_comparison.csv` before
+  completing the stage.**
 </content>
 </invoke>

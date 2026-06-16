@@ -2,14 +2,13 @@
   "agents": [
     "claude-sonnet-4-6"
   ],
-  "created": "2026-06-16T12:29:49Z",
-  "last_updated": "2026-06-16T12:32:26Z",
-  "last_session_id": "29e7a205-49a0-47de-8bf2-88a1a55122a0",
+  "created": "2026-06-16T14:35:00Z",
+  "last_updated": "2026-06-16T14:45:00Z",
   "sessions": 1,
-  "input_tokens": 2031497,
-  "output_tokens": 20468,
-  "user_word_count": 1223,
-  "lines_added": 312,
-  "lines_deleted": 0,
-  "files_changed": 2
+  "input_tokens": null,
+  "output_tokens": null,
+  "user_word_count": null,
+  "lines_added": null,
+  "lines_deleted": null,
+  "files_changed": null
 }

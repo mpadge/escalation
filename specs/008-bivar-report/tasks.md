@@ -8,7 +8,7 @@ git_hash: b4c79565b55e9a45a3eb3d846d7e51051b6559db
 
 ## T008-1: Set up docs/008-second-report/ directory and copy figures
 
-- [ ] T008-1: Create `docs/008-second-report/figures/` directory. Write
+- [x] T008-1: Create `docs/008-second-report/figures/` directory. Write
   `docs/008-second-report/plot_report.R` as a minimal script that copies
   `results/plots/gp_bivar_mu_sigma_alpha.png` and
   `results/plots/gp_bivar_mu_sigma_sigma_sigma.png` into
@@ -19,7 +19,7 @@ git_hash: b4c79565b55e9a45a3eb3d846d7e51051b6559db
 
 ## T008-2: Write docs/008-second-report/report.md
 
-- [ ] T008-2: Write `docs/008-second-report/report.md` as a ~2,500-word plain
+- [x] T008-2: Write `docs/008-second-report/report.md` as a ~2,500-word plain
   `.md` research memo (no references section, no `.myst` or `.bib`). Sections
   and approximate lengths:
 
@@ -76,7 +76,7 @@ git_hash: b4c79565b55e9a45a3eb3d846d7e51051b6559db
 
 ## T008-3: Write docs/final-report.md
 
-- [ ] T008-3: Write `docs/final-report.md` as a ~2,000-word standalone synthesis
+- [x] T008-3: Write `docs/final-report.md` as a ~2,000-word standalone synthesis
   document that integrates the Stage 004 and Stage 008 findings. Does not assume
   the reader has read either prior report. No references section, no `.myst` or
   `.bib`. Sections:
@@ -137,7 +137,7 @@ git_hash: b4c79565b55e9a45a3eb3d846d7e51051b6559db
 
 ## T008-4: Copy figures for final report and verify all outputs
 
-- [ ] T008-4: Copy `results/plots/gp_bivar_mu_sigma_alpha.png` to
+- [x] T008-4: Copy `results/plots/gp_bivar_mu_sigma_alpha.png` to
   `docs/figures/fig4_bivar_mu_sigma_alpha.png`. Verify `docs/figures/` contains
   the existing Stage 004 figures plus the new one. Check that all figure
   references in `docs/008-second-report/report.md` and `docs/final-report.md`

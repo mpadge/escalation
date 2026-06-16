@@ -1,7 +1,7 @@
 ---
 created: 2026-06-16T14:20:00Z
 agent: claude-sonnet-4-6
-git_hash: 72d5c37b720e6a5bacabd16745d99bca264bf2a0
+git_hash: cd4b21a03a6fd509139dbfbb91e256449e97efaf
 ---
 
 # Design Decisions: Escalation Model
@@ -177,6 +177,16 @@ train/test ntile() is used instead of cut()/quantile() to handle ties in
 psi_sigma_mean at zero.
 **Stages:** 007
 
+### Report documents as standalone, no references section
+**Outcome:** Stage 008 report documents (`docs/008-second-report/report.md`,
+`docs/final-report.md`) are plain `.md` with no citations block. The final
+report is written as a self-contained synthesis that does not assume prior
+reports have been read; it restates all three findings from scratch.
+**Rationale:** User instruction to omit `.myst`/`.bib` workflow. A synthesis
+that presupposes the prior reports has no independent value.
+**Tradeoffs:** Minor duplication with `docs/004-first-report/report.md`.
+**Stages:** 008
+
 ### Archived Ψ=1 contour overlay deferred
 **Outcome:** `plot_bivar.R` attempts to load alpha×lambda and lambda-axis phase
 CSVs from `results/003-centrality-correlation/gp_phase/` for Ψ=1 overlay on
@@ -249,7 +259,20 @@ mu_sigma × lambda) connecting the σ-trait space to the Stage 002/003 findings.
 A train/test stratification bug (cut()/quantile() failing on tied zeros) was
 fixed with ntile(). The planned archived Ψ=1 overlay could not be realised because
 Stage 003 lambda was not a top-four parameter and no matching archival phase CSV
-exists; the overlay is deferred to Stage 008.
+exists.
+
+**Stage 008** produced two synthesis documents. `docs/008-second-report/report.md`
+reports the Stage 007 bivariate findings for a social-science audience: dw_obs
+(observational bandwidth) is first-order for both estimands once σ is active;
+psi_sigma is small and flat (0.035–0.056), confirming σ-sensitivity is a weak
+interaction-driven phenomenon; psi with σ active is qualitatively preserved from
+Stage 002 with alpha remaining second in importance. `docs/final-report.md` is
+a standalone synthesis across all analyses, developing the thesis that escalation
+dynamics are architectural (governed by alpha, lambda, dw_obs) rather than
+individual (agent dispositions and σ distribution consistently rank last). The
+final report subsumes both prior reports and flags three remaining questions:
+bivariate centrality analysis, Ψ=1 threshold under σ, and network centrality
+inequality.
 
 ---
 
@@ -289,6 +312,11 @@ Morris/Sobol to avoid collinearity. Joint variation remains deferred.
 specification used sigma_decay=0.002; this caused sigma to drift during the run
 and reduced recoverability ρ to 0.78. Using sigma_decay=0.0 (as in T005-8)
 would give exact degenerate recovery and is the recommended approach.
+
+**References section in Stage 008 reports**: the Stage 004 report included a
+full Pandoc-formatted references block (`.myst`/`.bib` workflow). Stage 008
+documents omit this entirely, per user instruction. The Stage 004 report remains
+the citable version with full references.
 
 **Non-stationary GP kernel for interaction-dominated surface** (Stage 007):
 the psi_sigma Sobol result (S1 ≈ 0, ST ≈ 0.86–1.03) raised concern that a

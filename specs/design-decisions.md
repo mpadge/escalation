@@ -1,7 +1,7 @@
 ---
-created: 2026-06-12T12:00:00Z
+created: 2026-06-16T14:20:00Z
 agent: claude-sonnet-4-6
-git_hash: c2bc665a7455f473c7f4fbe95777a3cdd8f65823
+git_hash: 72d5c37b720e6a5bacabd16745d99bca264bf2a0
 ---
 
 # Design Decisions: Escalation Model
@@ -17,10 +17,11 @@ the global prestige radiation weight (dw_obs) and observational learning rate
 (eta_obs), making the observational cascade strength a per-agent property. An R
 analysis pipeline wraps the binary: Morris OAT screening identifies the active
 parameters for both the `psi` (μ₀ sensitivity) and `psi_sigma` (μ_σ sensitivity)
-estimands, Sobol decomposition ranks their variance contributions, and a two-GP
-emulator (DiceKriging, Matérn-5/2, ARD) maps the dominant parameters. Stage 006
-completed Morris and Sobol for `psi_sigma`; GP emulation for the bivariate surface
-is deferred to Stage 007.
+estimands, Sobol decomposition ranks their variance contributions, and DiceKriging
+Matérn-5/2 ARD GPs emulate the dominant-parameter surfaces. Stage 007 completed
+GP emulation for the bivariate model: two GPs (one per estimand) trained on a 1000-point
+LHS design over the 6 bivariate Sobol parameters, with phase diagrams across three
+axis pairs connecting the σ-trait space to the Stage 002/003 network-structure results.
 
 ---
 
@@ -80,25 +81,27 @@ regions); not needed once the nugget instability was resolved.
 
 ### Two-GP design (separate emulators per μ₀ condition)
 **Outcome:** Each analysis stage fits two independent GPs — one for the μ₀=0.4
-surface and one for μ₀=0.6 — and derives the difference post-hoc.
+surface and one for μ₀=0.6 — and derives the difference post-hoc. Stage 007
+uses a single-GP-per-estimand approach instead for the bivariate model.
 **Rationale:** A single GP trained on Ψ conflates absolute level and
 sensitivity; two GPs allow independent characterisation of each surface and
-make the derived quantity interpretable in context.
+make the derived quantity interpretable in context. The bivariate estimands
+(psi, psi_sigma) are already normalised derived quantities and do not require
+the per-condition decomposition.
 **Roads not taken:** Single Ψ-GP (Stage 0/1 approach, discarded Stage 2
-onward); joint GP with μ₀ as a covariate (would require a 5D input; unnecessary
-given only two conditions).
-**Stages:** 002
+onward); joint GP with μ₀ as a covariate.
+**Stages:** 002, 007
 
 ### Shared utility R files without stage suffixes
 **Outcome:** `gp_train_utils.R`, `gp_phase_utils.R`, `plot_utils.R` are
 sourced by all stage scripts; Stage 2 and Stage 3 scripts share code rather
-than duplicating it. Stage 006 analysis scripts use the `_bivar` suffix
+than duplicating it. Stage 006/007 analysis scripts use the `_bivar` suffix
 convention for their own helper functions, remaining self-contained.
 **Rationale:** Stage-suffixed utility files would proliferate with each stage;
 a single shared file per utility class is maintainable and avoids divergence.
 **Roads not taken:** Per-stage utility copies (safer against cross-stage
 breakage but creates duplication).
-**Stages:** 003, 006
+**Stages:** 003, 006, 007
 
 ### Generic column-name parameters in utilities
 **Outcome:** `build_design_matrix(raw, response_col)` and
@@ -124,8 +127,7 @@ act more indirectly on network topology and were rejected.
 **Roads not taken:** Retiring eta_obs/dw_obs entirely (Option B) — rejected
 because mu_sigma=0 would produce zero observational effects rather than
 original-model behaviour; retiring globals as scales creates the clean
-mu_sigma=1.0 degenerate baseline. Split σ_emit/σ_recv — deferred as
-unnecessary complexity at this stage.
+mu_sigma=1.0 degenerate baseline. Split σ_emit/σ_recv — deferred.
 **Stages:** 005
 
 ### σ reinforcement via vicarious winner payoff + sigma_decay
@@ -160,6 +162,32 @@ the second estimand; shared seed cancels stochastic variance from both estimates
 **Tradeoffs:** 50% more expensive per design point; delta_mu_sigma = 0.1
 validated by T006-3 (|psi_sigma| < 1e-3 under degenerate conditions).
 **Stages:** 006
+
+### Single-GP-per-estimand for bivariate emulation
+**Outcome:** Stage 007 trains one DiceKriging GP directly on psi_sigma and one
+on psi, using the same Matérn-5/2 / ARD / nugget.estim=TRUE specification as
+prior stages. Validation: RMSE(psi_sigma)=0.072, coverage=92.5%;
+RMSE(psi)=0.057, coverage=96.5%.
+**Rationale:** The bivariate estimands are normalised derived quantities (not
+absolute escalation levels) and do not require the per-condition decomposition
+used in Stages 002–003. The stationary Matérn-5/2 kernel proved adequate despite
+the interaction-dominated psi_sigma Sobol structure (S1 ≈ 0).
+**Roads not taken:** Non-stationary kernel (considered for the S1≈0 surface);
+train/test ntile() is used instead of cut()/quantile() to handle ties in
+psi_sigma_mean at zero.
+**Stages:** 007
+
+### Archived Ψ=1 contour overlay deferred
+**Outcome:** `plot_bivar.R` attempts to load alpha×lambda and lambda-axis phase
+CSVs from `results/003-centrality-correlation/gp_phase/` for Ψ=1 overlay on
+the psi panels. No matching archived CSV exists (Stage 003 top parameters were
+alpha, gamma, beta, eta_obs; lambda was not a top-four parameter). The overlay
+is skipped with `cli_alert_warning`.
+**Rationale:** Erroring would prevent plot generation; Stage 003 archival data
+simply does not span the needed axis pair. Warn-and-skip follows the task spec.
+**Roads not taken:** Generating a dedicated Stage 003 comparison surface in
+Stage 007 (possible Stage 008 item).
+**Stages:** 007
 
 ---
 
@@ -209,10 +237,19 @@ bivariate model, simultaneously computing `psi_sigma` (μ_σ sensitivity) and
 parameters (lambda, dw_obs, dw_bridge, alpha) contribute substantially;
 (b) psi_sigma Sobol shows S1 ≈ 0 / ST ≈ 0.86–1.03 for all parameters —
 variance is interaction-dominated, contrasting with the univariate Ψ;
-(c) alpha re-leads for psi with σ active (μ* = 0.636), consistent with Stage 003;
-(d) recoverability Spearman ρ = 0.78 (below 0.95 threshold) attributed to
-sigma_decay=0.002 in the degenerate run; fixing to sigma_decay=0.0 is the
-identified remediation. GP emulation for psi_sigma deferred to Stage 007.
+(c) alpha re-leads for psi with σ active (μ* = 0.636), consistent with Stage 003.
+
+**Stage 007** completed GP emulation for the bivariate model. Two DiceKriging
+GPs (one per estimand, Matérn-5/2, ARD, nugget.estim=TRUE) were trained on a
+1000-point LHS over the 6 bivariate Sobol parameters. Validation metrics
+(RMSE ≈ 0.06–0.07, coverage ≥ 92%) confirm the stationary kernel is adequate
+despite the interaction-dominated psi_sigma Sobol structure. Phase diagrams were
+produced for three axis pairs (mu_sigma × sigma_sigma, mu_sigma × alpha,
+mu_sigma × lambda) connecting the σ-trait space to the Stage 002/003 findings.
+A train/test stratification bug (cut()/quantile() failing on tied zeros) was
+fixed with ntile(). The planned archived Ψ=1 overlay could not be realised because
+Stage 003 lambda was not a top-four parameter and no matching archival phase CSV
+exists; the overlay is deferred to Stage 008.
 
 ---
 
@@ -246,9 +283,20 @@ considered but deferred as unnecessary complexity before the bivariate
 sensitivity analysis establishes which aspects of σ matter most.
 
 **eta_obs × mu_sigma joint variation** (Stage 006): excluded from the bivariate
-Morris/Sobol to avoid collinearity. Joint variation deferred to Stage 007.
+Morris/Sobol to avoid collinearity. Joint variation remains deferred.
 
 **sigma_decay=0.0 in degenerate recoverability run** (Stage 006): the task
 specification used sigma_decay=0.002; this caused sigma to drift during the run
 and reduced recoverability ρ to 0.78. Using sigma_decay=0.0 (as in T005-8)
 would give exact degenerate recovery and is the recommended approach.
+
+**Non-stationary GP kernel for interaction-dominated surface** (Stage 007):
+the psi_sigma Sobol result (S1 ≈ 0, ST ≈ 0.86–1.03) raised concern that a
+stationary Matérn-5/2 kernel might not capture the surface adequately. The
+validation metrics were acceptable with the stationary kernel; non-stationary
+alternatives were not pursued.
+
+**Archived Ψ=1 contour overlay** (Stage 007): intended to overlay Stage 003
+amplification boundary on the Stage 007 mu_sigma × alpha and mu_sigma × lambda
+psi panels. Not achievable because Stage 003 did not include lambda in its top
+parameters and no suitable archived phase CSV exists.

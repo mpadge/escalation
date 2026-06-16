@@ -48,7 +48,7 @@ git_hash: 098e58efda64444ac9bafac5f0c763406661090d
 
 ## T007-3: Create analysis/gp_phase_bivar.R
 
-- [ ] T007-3: Create `analysis/gp_phase_bivar.R` based on `analysis/gp_phase.R`
+- [x] T007-3: Create `analysis/gp_phase_bivar.R` based on `analysis/gp_phase.R`
   with the following changes:
   - Read `results/gp_bivar_train.csv`. Aggregate replicates per design point
     (group by all `param_names` columns, take mean of `psi_sigma` and `psi`).
@@ -87,7 +87,7 @@ git_hash: 098e58efda64444ac9bafac5f0c763406661090d
 
 ## T007-4: Create analysis/plot_bivar.R
 
-- [ ] T007-4: Create `analysis/plot_bivar.R` that reads the six phase CSVs from
+- [x] T007-4: Create `analysis/plot_bivar.R` that reads the six phase CSVs from
   `results/gp_bivar_phase/` and produces three output PNGs in `results/plots/`:
 
   - `gp_bivar_mu_sigma_sigma_sigma.png` — two-panel plot (psi_sigma | psi) for

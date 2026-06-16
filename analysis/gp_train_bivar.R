@@ -145,15 +145,7 @@ aggregate_replicates_bivar <- function (results_dir, design_scaled, param_names,
 }
 
 split_train_test_bivar <- function (gp_data, n_lhs, param_names) {
-    gp_data$quintile <- cut (
-        gp_data$psi_sigma_mean,
-        breaks = quantile (
-            gp_data$psi_sigma_mean,
-            probs = seq (0, 1, 0.2),
-            na.rm = TRUE
-        ),
-        include.lowest = TRUE, labels = FALSE
-    )
+    gp_data$quintile <- ntile (gp_data$psi_sigma_mean, 5L)
     set.seed (123)
     train_idx <- unlist (lapply (
         split (seq_len (n_lhs), gp_data$quintile),

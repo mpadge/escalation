@@ -1,6 +1,8 @@
 #!/usr/bin/make
 
-.PHONY: help build release test clean archive morris sobol gp validate status progress kill plots gp2 gp2_phase plots2 gp3 gp3_phase plots3 doc morris-bivar sobol-bivar recover-bivar gp-train-bivar gp-phase-bivar plots-bivar
+.PHONY: help build release test clean archive \
+        screen sobol explore train gini plots doc all \
+        validate status progress kill
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
@@ -24,60 +26,31 @@ test: ## Run all Rust unit and integration tests
 validate: release ## Run validate subcommand (N=50, T=1000, dump series to /tmp)
 	./target/release/escalation validate --params default --dump-series
 
-##@ Analysis
+##@ Analysis pipeline  (run steps 1–6 in order, or use 'make all' for 3–6)
 
-morris: release ## Run Morris screening (analysis/morris.R)
-	Rscript analysis/morris.R
+screen: release ## [step 1] Morris screening — results/morris_results.csv
+	Rscript analysis/screen.R
 
-sobol: release ## Run Sobol analysis (analysis/sobol.R) — requires morris_results.csv
+sobol: release ## [step 2] Sobol sensitivity — results/sobol_results.csv  (needs step 1)
 	Rscript analysis/sobol.R
 
-gp: release ## Run GP emulation: train + phase diagrams (analysis/gp_{train,phase}.R)
-	Rscript analysis/gp_train.R
-	Rscript analysis/gp_phase.R
+explore: release ## [step 3] Adaptive GP exploration — results/gp_psi.rds  (needs step 2)
+	Rscript analysis/gp_explore.R
 
-plots: ## Generate all plots (analysis/plot.R) — requires sobol/GP outputs
+train: ## [step 4] GP training (edeg, psi_sigma) — results/gp_*.rds  (needs step 3)
+	Rscript analysis/gp_train.R
+
+gini: ## [step 5] Gini GP analysis — results/gp_gini*.rds  (needs step 3)
+	Rscript analysis/gini.R
+
+plots: ## [step 6] All figures — results/figures/*.png  (needs steps 4–5)
 	Rscript analysis/plot.R
 
-gp2: ## Train two-GP emulators on absolute escalation surfaces (Stage 2)
-	Rscript analysis/gp_train2.R
-
-gp2_phase: ## Generate two-GP phase diagrams for E_lo, E_hi, and Psi surfaces (Stage 2)
-	Rscript analysis/gp_phase2.R
-
-plots2: ## Generate Stage 2 phase diagram plots
-	Rscript analysis/plot2.R
-
-gp3: ## Train two-GP emulators on epsilon-degree correlation surfaces (Stage 3)
-	Rscript analysis/gp_train3.R
-
-gp3_phase: ## Generate two-GP phase diagrams for C_lo, C_hi, and difference surfaces (Stage 3)
-	Rscript analysis/gp_phase3.R
-
-plots3: ## Generate Stage 3 phase diagram plots
-	Rscript analysis/plot3.R
-
-morris-bivar: release ## Run bivariate Morris screening — Stage 6 (analysis/morris-bivar.R)
-	Rscript analysis/morris-bivar.R
-
-sobol-bivar: release ## Run bivariate Sobol analysis — Stage 6, requires morris-bivar (analysis/sobol-bivar.R)
-	Rscript analysis/sobol-bivar.R
-
-recover-bivar: release ## Run degenerate-σ recoverability check — Stage 6 (analysis/recover-bivar.R)
-	Rscript analysis/recover-bivar.R
-
-gp-train-bivar: release ## Train GP emulators for bivariate model — Stage 7 (analysis/gp_train_bivar.R)
-	Rscript analysis/gp_train_bivar.R
-
-gp-phase-bivar: release ## Generate bivariate GP phase diagrams — Stage 7 (analysis/gp_phase_bivar.R)
-	Rscript analysis/gp_phase_bivar.R
-
-plots-bivar: ## Generate bivariate phase diagram plots — Stage 7 (analysis/plot_bivar.R)
-	Rscript analysis/plot_bivar.R
+all: explore train gini plots ## Run steps 3–6 in sequence (explore → train → gini → plots)
 
 ##@ Documentation
 
-doc: ## Render report with resolved citations (docs/report.myst → docs/report.md)
+doc: ## [step 7] Render report  (write docs/report.md first, then run this)
 	cd docs && pandoc -f markdown report.myst --bibliography references.bib --citeproc -t markdown -o report.md
 
 ##@ Utilities
@@ -85,7 +58,7 @@ doc: ## Render report with resolved citations (docs/report.myst → docs/report.
 status: ## Show which pipeline steps are complete and what to run next
 	@bash tools/status.bash
 
-progress: ## Show progress of running sensitivity analysis (morris/sobol/gp-train)
+progress: ## Show progress of running sensitivity analysis (screen/sobol/explore)
 	@bash tools/progress.bash
 
 kill: ## Kill all running escalation processes
@@ -93,9 +66,9 @@ kill: ## Kill all running escalation processes
 
 clean: ## Remove build artefacts and generated results
 	cargo clean
-	rm -f results/*.csv results/*.rds
-	rm -rf results/gp_phase results/plots
+	rm -f results/*.csv results/*.rds results/*.rds
+	rm -rf results/gp_phase results/figures
 	rm -rf /tmp/escalation
 
-archive: ## Move current results into results/<current-specs-phase>/
+archive: ## Archive current results into results/<stage>/
 	@bash tools/archive.bash

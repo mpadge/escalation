@@ -1,73 +1,82 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-X="[x]"
+X="[\033[32mx\033[0m]"
 O="[ ]"
 
-file_status() {
-    local label=$1; shift
+step() {
+    local n=$1 label=$2 cmd=$3; shift 3
     local found=0
     for f in "$@"; do
-        # support globs passed as strings
         for g in $f; do
             [ -f "$g" ] && found=1 && break 2
         done
     done
     if (( found )); then
-        echo "  $X $label"
+        printf "  %b  %d. %-38s done\n" "$X" "$n" "$label"
         return 0
     else
-        echo "  $O $label"
+        printf "  %b  %d. %-38s %s\n" "$O" "$n" "$label" "$cmd"
         return 1
     fi
 }
 
-running=$(pgrep -af 'target/release/escalation' 2>/dev/null | grep -v grep | head -1 | sed 's/^[0-9]* //' || true)
+running=$(pgrep -af 'target/release/escalation' 2>/dev/null | grep -v grep | head -1 \
+          | sed 's/^[0-9]* //' || true)
 
 echo "Pipeline status:"
 echo ""
 
 next=""
 
-file_status "binary built"        "target/release/escalation"           || { next="make release";       }
-file_status "morris screening"    "results/morris_results.csv"          || { next=${next:-"make morris"}; }
-file_status "sobol analysis"      "results/sobol_results.csv"           || { next=${next:-"make sobol"};  }
+step 0 "binary built"              "make release"  "target/release/escalation"  \
+    || next="make release"
 
-# gp_train and gp_phase are both launched by 'make gp'; distinguish partial completion
-if [ -f "results/gp_psi.rds" ] && [ -f "results/gp_validation.csv" ]; then
-    echo "  $X gp emulation (training + validation)"
+step 1 "Morris screening"          "make screen"   "results/morris_results.csv" \
+    || next=${next:-"make screen"}
+
+step 2 "Sobol sensitivity"         "make sobol"    "results/sobol_results.csv"  \
+    || next=${next:-"make sobol"}
+
+# Adaptive exploration: show partial progress if simulations ran but GP not yet fit
+if [ -f "results/gp_psi.rds" ]; then
+    step 3 "Adaptive GP exploration"   "make explore"  "results/gp_psi.rds" \
+           "results/adaptive_design.csv"
+elif [ -f "results/gp_train_raw.csv" ]; then
+    printf "  %b  3. %-38s %s\n" "$O" "Adaptive GP exploration" \
+           "(sims done, GP fit pending — re-run make explore)"
+    next=${next:-"make explore"}
 else
-    if [ -f "results/gp_train_raw.csv" ] && [ ! -f "results/gp_psi.rds" ]; then
-        echo "  $O gp emulation  (simulations done, GP fitting incomplete — re-run make gp)"
-    else
-        echo "  $O gp emulation"
-    fi
-    next=${next:-"make gp"}
+    step 3 "Adaptive GP exploration"   "make explore"  "results/gp_psi.rds" \
+        || next=${next:-"make explore"}
 fi
 
-if [ -f "results/sobol_gp.csv" ] && ls results/gp_phase/phase_*.csv >/dev/null 2>&1; then
-    echo "  $X phase diagrams + emulator Sobol"
+step 4 "GP training (edeg + psi_sigma)" "make train" \
+       "results/gp_edeg.rds" "results/gp_psi_sigma.rds" \
+    || next=${next:-"make train"}
+
+step 5 "Gini GP analysis"          "make gini"     "results/gp_gini.rds"        \
+    || next=${next:-"make gini"}
+
+if ls results/figures/*.png >/dev/null 2>&1; then
+    step 6 "Figures"               "make plots"    "results/figures/psi_phase_lambda_alpha.png"
 else
-    if [ -f "results/gp_psi.rds" ]; then
-        echo "  $O phase diagrams + emulator Sobol  (GP ready — run make gp)"
-        next=${next:-"make gp"}
-    else
-        echo "  $O phase diagrams + emulator Sobol"
-    fi
+    step 6 "Figures"               "make plots"    "results/figures/psi_phase_lambda_alpha.png" \
+        || next=${next:-"make plots"}
 fi
 
-if ls results/plots/*.png >/dev/null 2>&1; then
-    echo "  $X plots"
+if [ -f "docs/report.md" ]; then
+    step 7 "Report"                "make doc"      "docs/report.md"
 else
-    echo "  $O plots"
-    if [ -f "results/sobol_gp.csv" ]; then
-        next=${next:-"make plots"}
-    fi
+    step 7 "Report"                "make doc"      "docs/report.md" \
+        || next=${next:-"(write docs/report.md, then make doc)"}
 fi
 
 echo ""
 if [ -n "$running" ]; then
-    subcmd=$(echo "$running" | grep -oP '(?<=escalation )(morris|sobol|gp-train)' || echo "unknown")
+    subcmd=$(echo "$running" \
+             | grep -oP '(?<=escalation )(morris|sobol|gp-train)' \
+             || echo "unknown")
     echo "  Running : $subcmd  —  use 'make progress' for details"
 elif [ -n "$next" ]; then
     echo "  Next    : $next"

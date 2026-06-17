@@ -27,7 +27,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   standalone with no dependencies on other analysis scripts.
 
 ## T010-3: Write screen.R — unified bivariate Morris screening
-- [ ] T010-3: Rewrite `analysis/screen.R` (formerly `morris.R`) as a single script running
+- [x] T010-3: Rewrite `analysis/screen.R` (formerly `morris.R`) as a single script running
   Morris elementary-effects screening on the bivariate (ε, σ) model. The script must
   run the Rust binary, generate Morris trajectories across all parameters (including
   mu_sigma, sigma_sigma), and write results to `results/morris_results.csv`. Remove all

@@ -1,11 +1,18 @@
 #!/usr/bin/env Rscript
-# Morris elementary-effects screening for the escalation model.
-# Generates an OAT trajectory design, runs the Rust binary for each point
-# (paired mu0=0.4 vs mu0=0.6), and computes mu* and sigma per parameter.
+# Morris elementary-effects screening for the bivariate (ε, σ) escalation model.
+# Generates an OAT trajectory design over 14 free parameters, runs the Rust binary
+# for each point (paired mu0 conditions), and computes mu*, sigma per parameter for
+# both psi_sigma (primary) and psi estimands.
 #
-# Prerequisites: install.packages(c("sensitivity", "processx", "dplyr", "cli"))
-# Run from project root: Rscript analysis/morris.R
-# Requires a release build: cargo build --release
+# eta_obs is held fixed to avoid collinearity with mu_sigma: both scale the
+# observational-learning pathway. The sigma-degenerate case (mu_sigma=1,
+# sigma_sigma=0) is recovered by inspection of the sensitivity rankings.
+#
+# Output: results/morris_results.csv (long format: param x estimand)
+#
+# Prerequisites: install.packages(c("sensitivity", "processx", "dplyr", "cli", "RcppTOML"))
+# Run from project root: Rscript analysis/screen.R
+# Requires: cargo build --release
 
 library (sensitivity)
 library (processx)
@@ -20,19 +27,19 @@ source ("analysis/utils.R")
 # ---------------------------------------------------------------------------
 
 make_morris_design <- function (param_names, binf, bsup, fixed, results_dir,
-                                r = 15) {
+                                r = 15L) {
     p <- length (param_names)
     cli_alert_info (
         "Generating Morris design (r={.val {r}} trajectories, \\
         p={.val {p}} parameters)..."
     )
     m <- morris (
-        model  = NULL,
+        model   = NULL,
         factors = param_names,
-        r      = r,
-        design = list (type = "oat", levels = 8, grid.jump = 4),
-        binf   = binf [param_names],
-        bsup   = bsup [param_names]
+        r       = r,
+        design  = list (type = "oat", levels = 8, grid.jump = 4),
+        binf    = binf [param_names],
+        bsup    = bsup [param_names]
     )
     cli_alert_info ("Design has {nrow(m$X)} rows")
 
@@ -50,10 +57,7 @@ make_morris_design <- function (param_names, binf, bsup, fixed, results_dir,
         file.path (results_dir, "design_morris.csv"),
         row.names = FALSE
     )
-    cli_alert_info (
-        "Wrote design_morris.csv ({.val {nrow(design_full)}} rows x \\
-        {.val {ncol(design_full)}} cols)"
-    )
+    cli_alert_info ("Wrote design_morris.csv ({.val {nrow(design_full)}} rows)")
     list (m = m, design_full = design_full)
 }
 
@@ -71,50 +75,43 @@ run_morris_binary <- function (binary, results_dir, log_dir) {
     )
     if (result$status != 0) {
         cli_abort (
-            "Binary exited with status {.val {result$status}}, \\
-            stderr: {result$stderr}"
+            "Binary exited with status {.val {result$status}}: {result$stderr}"
         )
     }
 }
 
-compute_morris_indices <- function (m, design_full, param_names, results_dir) {
+compute_morris_indices <- function (m, design_full, param_names, metric_col,
+                                    results_dir) {
     raw <- read.csv (file.path (results_dir, "morris_raw.csv"))
-    if (nrow (raw) != 2 * nrow (design_full)) {
+    if (nrow (raw) != 2L * nrow (design_full)) {
         cli_alert_warning (
-            "Expected {.val {2 * nrow(design_full)}} rows, \\
+            "Expected {.val {2L * nrow(design_full)}} rows, \\
             got {.val {nrow(raw)}}"
         )
     }
-    psi_vals <- raw$psi [seq (1, nrow (raw), by = 2)]
-    if (any (is.na (psi_vals))) {
+    vals <- raw [[metric_col]] [seq (1L, nrow (raw), by = 2L)]
+    if (any (is.na (vals))) {
         cli_alert_warning (
-            "{.val {sum(is.na(psi_vals))}} NA psi values replaced with 0"
+            "{.val {sum(is.na(vals))}} NA {metric_col} values replaced with 0"
         )
-        psi_vals [is.na (psi_vals)] <- 0
+        vals [is.na (vals)] <- 0
     }
 
-    m <- tell (m, psi_vals)
+    m_copy <- m
+    m_copy <- tell (m_copy, vals)
 
-    mu_star <- apply (m$ee, 2, function (e) mean (abs (e)))
-    sigma   <- apply (m$ee, 2, sd)
-    mu      <- apply (m$ee, 2, mean)
+    mu_star <- apply (m_copy$ee, 2, function (e) mean (abs (e)))
+    sigma   <- apply (m_copy$ee, 2, sd)
+    mu      <- apply (m_copy$ee, 2, mean)
 
-    results <- data.frame (
-        param   = param_names,
-        mu_star = mu_star,
-        sigma   = sigma,
-        mu      = mu
-    )
-    results <- results [order (-results$mu_star), ]
-    write.csv (
-        results,
-        file.path (results_dir, "morris_results.csv"),
-        row.names = FALSE
-    )
-    cli_alert_info ("Morris results (ranked by mu*):")
-    print (results, digits = 3)
-    cli_alert_info ("Wrote morris_results.csv")
-    invisible (results)
+    data.frame (
+        param    = param_names,
+        estimand = metric_col,
+        mu_star  = mu_star,
+        sigma    = sigma,
+        mu       = mu
+    ) |>
+        arrange (desc (mu_star))
 }
 
 # ---------------------------------------------------------------------------
@@ -126,41 +123,48 @@ set.seed (42)
 results_dir <- "results"
 dir.create (results_dir, showWarnings = FALSE)
 
-# Parameter space (11 free parameters after ratio reparametrisation)
+# 14 free parameters: original 10 (eta_obs fixed to avoid collinearity with
+# mu_sigma) + 4 sigma-trait parameters introduced in the bivariate model
 param_names <- c (
-    "gamma",     # network attachment exponent
-    "lambda",    # mean group size (Poisson)
-    "alpha",     # locality / distance decay
-    "theta",     # audience radius (integer 1-4)
-    "beta",      # status-advantage multiplier
-    "w_win",     # win payoff (with c=0.5 fixed: r_win_cost = w_win/c)
-    "b",         # cooperation benefit (with e=0.5: r_coop_exploit = b/e)
-    "w_loss",    # loss cost (ratio r_loss_win = w_loss/w_win)
-    "dw_obs",    # observer edge increment (with dw_coop=0.15: r_obs_coop)
-    "dw_bridge", # bridge edge increment (with dw_sub=0.15: r_bridge_sub)
-    "eta_obs"    # obs. learning rate (with eta=0.1: # kappa = eta_obs/eta)
-    # delta fixed at pars_s$delta — suppresses Psi monotonically; held out of
-    # analyses
+    "gamma",       # network attachment exponent
+    "lambda",      # mean group size (Poisson)
+    "alpha",       # locality / distance decay
+    "theta",       # audience radius (integer 1-4)
+    "beta",        # status-advantage multiplier
+    "w_win",       # win payoff
+    "b",           # cooperation benefit
+    "w_loss",      # loss cost
+    "dw_obs",      # observer edge increment
+    "dw_bridge",   # bridge edge increment
+    "mu_sigma",    # initial mean sigma (per-agent status sensitivity)
+    "sigma_sigma", # initial SD of sigma
+    "eta_sigma",   # sigma update rate
+    "sigma_decay"  # per-timestep sigma drift
 )
 
-# Structural constants from defaults.toml; t_max reduced for screening speed.
 pars   <- RcppTOML::parseTOML ("defaults.toml")
 pars_s <- pars$structural
 pars_a <- pars$analysis
 
+get_range <- function (nm) {
+    r <- pars$ranges [[nm]]
+    if (!is.null (r)) return (r)
+    stop ("No range found in defaults.toml for: ", nm)
+}
+
 binf <- setNames (
-    vapply (param_names, function (nm) pars$ranges [[nm]] [1L], numeric (1)),
+    vapply (param_names, function (nm) get_range (nm) [1L], numeric (1)),
     param_names
 )
 bsup <- setNames (
-    vapply (param_names, function (nm) pars$ranges [[nm]] [2L], numeric (1)),
+    vapply (param_names, function (nm) get_range (nm) [2L], numeric (1)),
     param_names
 )
 
 log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
 safe_clear_done_files (log_dir, expected_n = 15L * (length (param_names) + 1L))
-cli_alert_info ("Progress files will be written to {log_dir}")
+cli_alert_info ("Progress files will be written to {.file {log_dir}}")
 
 fixed <- list (
     n             = as.integer (pars_a$n),
@@ -172,6 +176,7 @@ fixed <- list (
     dw_sub        = pars_a$dw_sub,
     dw_excl       = pars_a$dw_excl,
     eta           = pars_a$eta,
+    eta_obs       = pars_a$mid_eta_obs,  # fixed to avoid collinearity with mu_sigma
     delta_direct  = pars_a$delta_direct,
     delta_exploit = pars_a$delta_exploit,
     w_min         = pars_s$w_min,
@@ -185,12 +190,24 @@ fixed <- list (
 
 binary <- "./target/release/escalation"
 if (!file.exists (binary)) {
-    cli_abort (
-        "Binary not found at {.file {binary}} — \\
-        run 'cargo build --release' first"
-    )
+    cli_abort ("Binary not found — run 'cargo build --release'")
 }
 
 design <- make_morris_design (param_names, binf, bsup, fixed, results_dir)
 run_morris_binary (binary, results_dir, log_dir)
-compute_morris_indices (design$m, design$design_full, param_names, results_dir)
+
+res_psi_sigma <- compute_morris_indices (
+    design$m, design$design_full, param_names, "psi_sigma", results_dir
+)
+res_psi <- compute_morris_indices (
+    design$m, design$design_full, param_names, "psi", results_dir
+)
+
+results <- rbind (res_psi_sigma, res_psi)
+write.csv (results, file.path (results_dir, "morris_results.csv"), row.names = FALSE)
+
+cli_alert_info ("psi_sigma Morris results (ranked by mu*):")
+print (res_psi_sigma [, c ("param", "mu_star", "sigma")], digits = 3, row.names = FALSE)
+cli_alert_info ("psi Morris results (ranked by mu*):")
+print (res_psi [, c ("param", "mu_star", "sigma")], digits = 3, row.names = FALSE)
+cli_alert_success ("Wrote morris_results.csv")

@@ -77,7 +77,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   `results/gp_gini_dissip.rds`; write phase CSVs to `results/gp_phase/gini_*.csv`.
 
 ## T010-8: Write plot.R — consolidated plotting
-- [ ] T010-8: Rewrite `analysis/plot.R` to produce all figures from the CSV outputs in
+- [x] T010-8: Rewrite `analysis/plot.R` to produce all figures from the CSV outputs in
   `results/gp_phase/`: (a) Ψ phase diagram (λ×α, high-Ψ corner) with Ψ=1 contour;
   (b) σ-degenerate Ψ slice for comparison; (c) ε–degree correlation phase diagram;
   (d) Gini phase diagram; (e) ARD sensitivity bar chart comparing all three estimands
@@ -85,7 +85,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   variants and bivariate-specific branches — one script, one call per figure type.
 
 ## T010-9: Collapse Makefile to ≤8 targets
-- [ ] T010-9: Rewrite the `Makefile` so that it contains exactly the following analysis
+- [x] T010-9: Rewrite the `Makefile` so that it contains exactly the following analysis
   targets (each invoking one script): `screen`, `sobol`, `explore`, `train`, `gini`,
   `plots`, plus `doc` (for report rendering) and `all` (runs explore → train → gini →
   plots in order). Remove all stage-numbered targets (`gp2`, `gp2_phase`, `plots2`,

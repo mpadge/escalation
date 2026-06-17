@@ -1,179 +1,209 @@
 #!/usr/bin/env Rscript
-# Visualisation for the escalation sensitivity analysis pipeline.
-# Produces:
-#   plots/phase_{A}_vs_{B}.png  — Psi phase diagrams (geom_tile + geom_contour)
-#   plots/ard_lengths.png       — ARD length scale bar chart
-#   plots/sobol_comparison.png  — Grouped S_i / S_Ti comparison across methods
+# Consolidated figure generation for the Stage 010 pipeline.
+# Reads phase CSVs from results/gp_phase/ and sensitivity CSVs from results/.
+# Produces five figure types:
+#   (a) Psi phase diagram (lambda x alpha) with Psi=1 contour
+#   (b) Sigma-degenerate Psi slice (mu_sigma=1, sigma_sigma=0) for comparison
+#   (c) Epsilon-degree correlation phase diagram
+#   (d) Gini phase diagram
+#   (e) ARD sensitivity bar chart comparing all estimands side by side
+#
+# Output: results/figures/*.png
 #
 # Prerequisites: install.packages(c("ggplot2", "dplyr", "tidyr", "cli"))
 # Run from project root: Rscript analysis/plot.R
+# Requires: make explore, make train, make gini completed
 
 library (ggplot2)
 library (dplyr, warn.conflicts = FALSE)
 library (tidyr)
 library (cli)
 
+# ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+
 results_dir <- "results"
-if (!dir.exists (results_dir)) {
-    cli_abort (
-        "Output directory {.file {results_dir}} not found \\
-        — run {.file analysis/morris.R} first"
-    )
+phase_dir   <- file.path (results_dir, "gp_phase")
+fig_dir     <- file.path (results_dir, "figures")
+dir.create (fig_dir, recursive = TRUE, showWarnings = FALSE)
+
+require_csv <- function (path) {
+    if (!file.exists (path))
+        cli_abort ("{.file {path}} not found — ensure pipeline steps are complete")
+    read.csv (path)
 }
-phase_dir <- file.path (results_dir, "gp_phase")
-plots_dir <- file.path (results_dir, "plots")
-dir.create (plots_dir, recursive = TRUE, showWarnings = FALSE)
 
-theme_set (theme_minimal (base_size = 11))
+save_png <- function (p, name, width = 7, height = 5.5) {
+    path <- file.path (fig_dir, paste0 (name, ".png"))
+    ggsave (path, p, width = width, height = height, dpi = 150)
+    cli_alert_info ("Wrote {.file {path}}")
+    invisible (path)
+}
 
-# ---------------------------------------------------------------------------
-# Phase diagrams
-# ---------------------------------------------------------------------------
-phase_files <- list.files (phase_dir, pattern = "^phase_.*\\.csv$")
-phase_files <- phase_files [!grepl ("_tau\\.csv$", phase_files)]
-
-if (length (phase_files) == 0) {
-    cli_alert_warning (
-        "No phase CSV files found — run {.file gp_phase.R} first"
-    )
-} else {
-    for (f in phase_files) {
-        tag <- sub ("^phase_", "", sub ("\\.csv$", "", f))
-        df <- read.csv (file.path (phase_dir, f))
-        xy <- setdiff (
-            names (df),
-            c ("psi_mean", "psi_sd", "tau_mean", "tau_sd")
+# Shared theme: clean, publication-ready
+theme_escalation <- function () {
+    theme_minimal (base_size = 12) +
+        theme (
+            plot.title        = element_text (face = "bold", size = 13),
+            axis.title        = element_text (size = 11),
+            legend.title      = element_text (size = 10),
+            legend.position   = "right",
+            panel.grid.minor  = element_blank ()
         )
-        if (length (xy) < 2) next
-        xvar <- xy [1]
-        yvar <- xy [2]
-
-        p_phase <- ggplot (df, aes (x = .data [[xvar]], y = .data [[yvar]])) +
-            geom_tile (aes (fill = psi_mean)) +
-            geom_contour (aes (z = psi_sd),
-                colour = "white", alpha = 0.6,
-                bins = 5, linewidth = 0.35
-            ) +
-            scale_fill_viridis_c (
-                option = "plasma", name = expression (Psi ~ "mean")
-            ) +
-            labs (
-                title    = bquote (
-                    "Phase diagram: " ~ Psi ~ "(" * . (xvar) * ", " * . (yvar) * ")"
-                ),
-                subtitle = "White contours = emulator uncertainty (Psi sd)",
-                x        = xvar,
-                y        = yvar
-            )
-
-        out <- file.path (plots_dir, paste0 ("phase_", tag, ".png"))
-        ggsave (out, p_phase, width = 7, height = 5, dpi = 300)
-        cli_alert_info ("Saved {out}")
-    }
 }
 
 # ---------------------------------------------------------------------------
-# ARD length scales
+# (a) Psi phase diagram — high-Psi corner
 # ---------------------------------------------------------------------------
-if (!file.exists (file.path (results_dir, "gp_hyperparams.csv"))) {
-    cli_alert_warning ("gp_hyperparams.csv not found — skipping ARD plot")
-} else {
-    hp <- read.csv (file.path (results_dir, "gp_hyperparams.csv")) |>
-        filter (!is.na (sensitivity)) |>
-        arrange (ell)
 
-    p_ard <- ggplot (hp, aes (x = reorder (param, ell), y = ell)) +
-        geom_col (fill = "#2166ac", alpha = 0.85) +
-        coord_flip () +
-        labs (
-            title    = "ARD length scales (GP Psi emulator)",
-            subtitle = "Shorter bars = more sensitive parameter",
-            x        = NULL,
-            y        = expression ("Length scale " * ell [d])
-        )
+cli_h2 ("(a) Psi phase diagram")
+df_psi <- require_csv (
+    file.path (phase_dir, "phase_psi_lambda_alpha.csv")
+)
 
-    ggsave (
-        file.path (plots_dir, "ard_lengths.png"),
-        p_ard,
-        width = 6,
-        height = 4,
-        dpi = 300
-    )
-    cli_alert_info ("Saved {.file {file.path (plots_dir, 'ard_lengths.png')}}")
-}
-
-# ---------------------------------------------------------------------------
-# Sobol comparison: Morris mu* vs Sobol S_T vs GP-Sobol S_T
-# ---------------------------------------------------------------------------
-sources <- list ()
-
-if (file.exists (file.path (results_dir, "morris_results.csv"))) {
-    m <- read.csv (file.path (results_dir, "morris_results.csv")) |>
-        transmute (param,
-            value = mu_star / max (mu_star, na.rm = TRUE),
-            method = "Morris mu*"
-        )
-    sources [["morris"]] <- m
-}
-
-if (file.exists (file.path (results_dir, "sobol_results.csv"))) {
-    s <- read.csv (file.path (results_dir, "sobol_results.csv")) |>
-        transmute (param, value = ST, method = "Sobol ST")
-    sources [["sobol"]] <- s
-}
-
-if (file.exists (file.path (results_dir, "sobol_gp.csv"))) {
-    g <- read.csv (file.path (results_dir, "sobol_gp.csv")) |>
-        transmute (param, value = ST, method = "GP-Sobol ST")
-    sources [["gp"]] <- g
-}
-
-if (length (sources) >= 2) {
-    combined <- bind_rows (sources)
-    top_params <- combined |>
-        group_by (param) |>
-        summarise (max_val = max (value, na.rm = TRUE)) |>
-        arrange (desc (max_val)) |>
-        slice_head (n = 10) |>
-        pull (param)
-
-    combined <- combined |> filter (param %in% top_params)
-
-    p_sobol <- ggplot (
-        combined,
-        aes (
-            x = reorder (param, value, FUN = max),
-            y = value, fill = method
-        )
+p_psi <- ggplot (df_psi, aes (x = lambda, y = alpha, fill = z)) +
+    geom_tile () +
+    geom_contour (aes (z = z), breaks = 1.0, colour = "white", linewidth = 0.8,
+                  linetype = "dashed") +
+    scale_fill_viridis_c (name = expression (Psi), option = "plasma") +
+    labs (
+        title    = expression ("Population amplification ratio"~Psi),
+        subtitle = "Dashed contour: Psi = 1 (amplification threshold)",
+        x        = expression (lambda~"(mean group size)"),
+        y        = expression (alpha~"(locality)")
     ) +
-        geom_col (position = position_dodge (0.75), width = 0.65) +
-        coord_flip () +
-        scale_fill_brewer (palette = "Set1", name = NULL) +
+    theme_escalation ()
+
+save_png (p_psi, "psi_phase_lambda_alpha")
+
+# ---------------------------------------------------------------------------
+# (b) Sigma-degenerate Psi slice
+# ---------------------------------------------------------------------------
+
+cli_h2 ("(b) Sigma-degenerate Psi slice")
+degen_path <- file.path (phase_dir, "psi_degenerate.csv")
+if (file.exists (degen_path)) {
+    df_degen <- read.csv (degen_path)
+
+    p_degen <- ggplot (df_degen, aes (x = lambda, y = alpha, fill = z)) +
+        geom_tile () +
+        geom_contour (aes (z = z), breaks = 1.0, colour = "white",
+                      linewidth = 0.8, linetype = "dashed") +
+        scale_fill_viridis_c (name = expression (Psi), option = "plasma") +
         labs (
-            title    = "Sensitivity index comparison",
-            subtitle =
-                "Morris mu* normalised to [0,1]; Sobol and GP-Sobol show S_T",
-            x        = NULL,
-            y        = "Index value"
+            title    = expression (
+                "Psi at sigma-degenerate slice ("*mu[sigma]*"=1, "*sigma[sigma]*"=0)"
+            ),
+            subtitle = "Uniform status sensitivity — interpretive reference within bivariate model",
+            x        = expression (lambda~"(mean group size)"),
+            y        = expression (alpha~"(locality)")
         ) +
+        theme_escalation ()
+
+    save_png (p_degen, "psi_degenerate_lambda_alpha")
+} else {
+    cli_alert_warning ("{.file {degen_path}} not found — skipping panel (b)")
+}
+
+# ---------------------------------------------------------------------------
+# (c) Epsilon-degree correlation phase diagram
+# ---------------------------------------------------------------------------
+
+cli_h2 ("(c) Epsilon-degree correlation phase diagram")
+edeg_path <- file.path (phase_dir, "phase_edeg_lambda_alpha.csv")
+if (file.exists (edeg_path)) {
+    df_edeg <- read.csv (edeg_path)
+
+    p_edeg <- ggplot (df_edeg, aes (x = lambda, y = alpha, fill = z)) +
+        geom_tile () +
+        scale_fill_distiller (
+            name    = expression (r[epsilon * "-" * k]),
+            palette = "RdYlBu", direction = 1
+        ) +
+        labs (
+            title = expression (
+                "Epsilon-degree correlation"~r[epsilon * "-" * k]
+            ),
+            x = expression (lambda~"(mean group size)"),
+            y = expression (alpha~"(locality)")
+        ) +
+        theme_escalation ()
+
+    save_png (p_edeg, "edeg_phase_lambda_alpha")
+} else {
+    cli_alert_warning ("{.file {edeg_path}} not found — skipping panel (c)")
+}
+
+# ---------------------------------------------------------------------------
+# (d) Gini phase diagram
+# ---------------------------------------------------------------------------
+
+cli_h2 ("(d) Gini phase diagram")
+gini_path <- file.path (phase_dir, "gini_k_final_lambda_alpha.csv")
+if (file.exists (gini_path)) {
+    df_gini <- read.csv (gini_path)
+
+    p_gini <- ggplot (df_gini, aes (x = lambda, y = alpha, fill = z)) +
+        geom_tile () +
+        scale_fill_distiller (
+            name    = "Gini",
+            palette = "Reds", direction = 1
+        ) +
+        labs (
+            title    = "Degree-centrality Gini inequality",
+            subtitle = "Equilibrium Gini at simulation end",
+            x        = expression (lambda~"(mean group size)"),
+            y        = expression (alpha~"(locality)")
+        ) +
+        theme_escalation ()
+
+    save_png (p_gini, "gini_phase_lambda_alpha")
+} else {
+    cli_alert_warning ("{.file {gini_path}} not found — skipping panel (d)")
+}
+
+# ---------------------------------------------------------------------------
+# (e) ARD sensitivity bar chart across estimands
+# ---------------------------------------------------------------------------
+
+cli_h2 ("(e) ARD sensitivity comparison")
+ard_path <- file.path (results_dir, "gp_hyperparams_all.csv")
+if (file.exists (ard_path)) {
+    df_ard <- read.csv (ard_path)
+
+    estimand_labels <- c (
+        psi          = "Psi (amplification)",
+        psi_sigma    = "Psi_sigma (sigma sensitivity)",
+        edeg         = "epsilon-degree correlation",
+        gini_k_final = "Gini (equilibrium)",
+        gini_dissip  = "Gini (dissipative)"
+    )
+    df_ard$estimand_lab <- estimand_labels [df_ard$estimand]
+    df_ard$estimand_lab [is.na (df_ard$estimand_lab)] <- df_ard$estimand [is.na (df_ard$estimand_lab)]
+
+    p_ard <- ggplot (df_ard, aes (
+        x    = reorder (param, sensitivity),
+        y    = sensitivity,
+        fill = estimand_lab
+    )) +
+        geom_col (position = "dodge") +
+        coord_flip () +
+        scale_fill_brewer (palette = "Set2", name = "Estimand") +
+        labs (
+            title    = "ARD sensitivity by parameter and estimand",
+            subtitle = "Sensitivity = 1/length-scale (larger = more influential)",
+            x        = "Parameter",
+            y        = "ARD sensitivity (1/l)"
+        ) +
+        theme_escalation () +
         theme (legend.position = "bottom")
 
-    ggsave (
-        file.path (plots_dir, "sobol_comparison.png"),
-        p_sobol,
-        width = 7,
-        height = 5,
-        dpi = 300
-    )
-    cli_alert_info (
-        "Saved {.file {file.path (plots_dir, 'sobol_comparison.png')}}"
-    )
+    save_png (p_ard, "ard_sensitivity_all", width = 9, height = 6)
 } else {
-    cli_alert_warning (
-        "Need at least 2 of {{{.file morris_results.csv}, \\
-        {.file sobol_results.csv}, \\
-        {.file sobol_gp.csv}} for comparison plot"
-    )
+    cli_alert_warning ("{.file {ard_path}} not found — skipping panel (e)")
 }
 
-cli_alert_success (col_yellow ("Done."))
+cli_alert_success (col_green (
+    "All figures written to {.file {fig_dir}}"
+))

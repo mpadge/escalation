@@ -1,7 +1,7 @@
 ---
 created: 2026-06-16T14:20:00Z
 agent: claude-sonnet-4-6
-git_hash: cd4b21a03a6fd509139dbfbb91e256449e97efaf
+git_hash: f1e95adc5b5f98dd917061c2bb9c5bc51f20f6bb
 ---
 
 # Design Decisions: Escalation Model
@@ -18,10 +18,10 @@ the global prestige radiation weight (dw_obs) and observational learning rate
 analysis pipeline wraps the binary: Morris OAT screening identifies the active
 parameters for both the `psi` (μ₀ sensitivity) and `psi_sigma` (μ_σ sensitivity)
 estimands, Sobol decomposition ranks their variance contributions, and DiceKriging
-Matérn-5/2 ARD GPs emulate the dominant-parameter surfaces. Stage 007 completed
-GP emulation for the bivariate model: two GPs (one per estimand) trained on a 1000-point
-LHS design over the 6 bivariate Sobol parameters, with phase diagrams across three
-axis pairs connecting the σ-trait space to the Stage 002/003 network-structure results.
+Matérn-5/2 ARD GPs emulate the dominant-parameter surfaces. Stage 009 added
+GP-based Gini analysis: three estimands (gini_k_final, gini_dissipative, and the
+mu0 hypothesis delta) are characterised across both the baseline and bivariate
+models using the same training datasets produced in prior stages.
 
 ---
 
@@ -82,7 +82,9 @@ regions); not needed once the nugget instability was resolved.
 ### Two-GP design (separate emulators per μ₀ condition)
 **Outcome:** Each analysis stage fits two independent GPs — one for the μ₀=0.4
 surface and one for μ₀=0.6 — and derives the difference post-hoc. Stage 007
-uses a single-GP-per-estimand approach instead for the bivariate model.
+uses a single-GP-per-estimand approach instead for the bivariate model. Stage 009
+extends the two-GP pattern to `gini_k_final` (lo/hi) and `gini_dissipative`
+(lo/hi) across both models.
 **Rationale:** A single GP trained on Ψ conflates absolute level and
 sensitivity; two GPs allow independent characterisation of each surface and
 make the derived quantity interpretable in context. The bivariate estimands
@@ -90,7 +92,7 @@ make the derived quantity interpretable in context. The bivariate estimands
 the per-condition decomposition.
 **Roads not taken:** Single Ψ-GP (Stage 0/1 approach, discarded Stage 2
 onward); joint GP with μ₀ as a covariate.
-**Stages:** 002, 007
+**Stages:** 002, 007, 009
 
 ### Shared utility R files without stage suffixes
 **Outcome:** `gp_train_utils.R`, `gp_phase_utils.R`, `plot_utils.R` are
@@ -199,6 +201,30 @@ simply does not span the needed axis pair. Warn-and-skip follows the task spec.
 Stage 007 (possible Stage 008 item).
 **Stages:** 007
 
+### Absolute Gini level as estimand (not paired difference)
+**Outcome:** `gini_k_final` is analysed as an absolute level; the mu0 effect
+is tested as a separate hypothesis. Four GPs per model (gini_k_final lo/hi,
+gini_dissipative lo/hi) are trained on existing training datasets.
+**Rationale:** The primary question — which structural parameters govern
+centrality inequality — requires the absolute level surface. A paired ratio
+would merge this question with the mu0 effect and produce a scale that cannot
+be compared to Ψ. mu0 is treated as a covariate with its own explicit test.
+**Tradeoffs:** Cannot be expressed on the same normalised scale as Ψ; requires
+a separate hypothesis-test step.
+**Stages:** 009
+
+### Matched parameter sets for cross-estimand Sobol comparison
+**Outcome:** Baseline Gini Sobol uses the four Stage 003 TOP_PARAMS (alpha,
+gamma, lambda, eta_obs); bivariate Gini Sobol uses the six Stage 007 bivariate
+Sobol parameters. This enables direct rank-order comparison across Ψ / ε–degree
+/ Gini in the baseline, and Ψ / psi_sigma / Gini in the bivariate.
+**Rationale:** Cross-estimand comparison is only meaningful when the Sobol
+parameter set is held constant. Gini uses the same parameter set as prior stages
+explicitly for this purpose.
+**Roads not taken:** Expanding to the full Morris-screened parameter set (would
+prevent comparison).
+**Stages:** 009
+
 ---
 
 ## Architectural Evolution
@@ -270,9 +296,25 @@ Stage 002 with alpha remaining second in importance. `docs/final-report.md` is
 a standalone synthesis across all analyses, developing the thesis that escalation
 dynamics are architectural (governed by alpha, lambda, dw_obs) rather than
 individual (agent dispositions and σ distribution consistently rank last). The
-final report subsumes both prior reports and flags three remaining questions:
+final report subsumes both prior reports and flagged three remaining questions:
 bivariate centrality analysis, Ψ=1 threshold under σ, and network centrality
 inequality.
+
+**Stage 009** characterised the third remaining question: network centrality
+inequality. Using pre-existing training data, GP-based Sobol analyses for
+`gini_k_final` were run on both models and compared to the established Ψ and
+ε–degree rankings. The findings extend the central architectural thesis to a
+three-way dissociation: lambda governs Ψ (amplification), alpha governs ε–degree
+correlation (power concentration), and eta_obs / dw_obs govern Gini (inequality).
+In 98.6% of baseline configurations and 100% of bivariate configurations, higher
+escalation (mu0 = 0.6) produces higher equilibrium Gini, with mean differences
+of 0.19 and 0.30 respectively. Dissipative inequality (peak minus equilibrium
+Gini) is modest but structurally patterned: globally connected configurations
+dissipate more, consistent with faster cooperative rebuilding at distance.
+`docs/final-report.md` was extended with a closing "Inequality of network
+centrality" section resolving the Gini remaining-question item. Two deferred
+items from Stage 008 remain open: the Ψ=1 threshold under σ, and the bivariate
+ε–degree correlation.
 
 ---
 
@@ -328,3 +370,9 @@ alternatives were not pursued.
 amplification boundary on the Stage 007 mu_sigma × alpha and mu_sigma × lambda
 psi panels. Not achievable because Stage 003 did not include lambda in its top
 parameters and no suitable archived phase CSV exists.
+
+**Paired Gini difference as estimand** (Stage 009): would have mirrored the Ψ
+estimand design and made the mu0 effect directly comparable in scale. Rejected
+because the governing-parameter question (which structural configurations produce
+concentrated vs. distributed degree centrality) requires the absolute level;
+the mu0 effect is better addressed as a separate hypothesis test.

@@ -43,7 +43,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   T010-1); the bivariate Sobol is the only Sobol run.
 
 ## T010-5: Write gp_explore.R — adaptive phase exploration
-- [ ] T010-5: Write `analysis/gp_explore.R` implementing the adaptive sampling algorithm:
+- [x] T010-5: Write `analysis/gp_explore.R` implementing the adaptive sampling algorithm:
   (1) Generate a coarse LHS design of N=200 points over the full bivariate parameter
   space and simulate Ψ. (2) Fit an initial DiceKriging GP on Ψ. (3) Evaluate the GP
   posterior mean on a 30×30 grid; identify the grid point with maximum predicted Ψ.

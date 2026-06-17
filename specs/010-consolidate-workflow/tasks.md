@@ -69,7 +69,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   No separate univariate GP is trained.
 
 ## T010-7: Write gini.R — consolidated Gini estimand analysis
-- [ ] T010-7: Write `analysis/gini.R` to fit DiceKriging GPs for `gini_k_final` and
+- [x] T010-7: Write `analysis/gini.R` to fit DiceKriging GPs for `gini_k_final` and
   dissipative inequality (`gini_peak − gini_k_final`) using the adaptive design from
   `results/adaptive_design.csv`. Compute ARD sensitivity rankings and compare to the
   Ψ and ε–degree rankings from the same design (reproducing the three-way dissociation:

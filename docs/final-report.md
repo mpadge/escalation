@@ -203,9 +203,81 @@ interventions.
 
 ---
 
+## Inequality of network centrality
+
+A final question left open by the preceding analyses is whether the social
+conditions that produce amplification (Ψ > 1) or individual power concentration
+(high ε–degree correlation) also govern inequality across the full
+degree-centrality distribution — or whether centrality inequality is governed
+by a different structural axis entirely.
+
+The short answer is that escalation reliably elevates centrality inequality, but
+the structural variables that govern how *much* inequality it produces are not
+the same ones that govern whether escalation is amplified into a norm.
+
+**Higher escalation consistently produces higher inequality.** Across 1,000
+structural configurations in the baseline model, 98.6% showed higher equilibrium
+Gini at the higher baseline escalation condition (mu0 = 0.6 versus 0.4), with a
+mean difference of 0.19 on the 0–1 Gini scale. In the bivariate σ model the
+result is universal: the higher-escalation group showed higher equilibrium Gini
+across every one of the 1,000 configurations examined, with a mean difference of
+0.30. Escalation concentrates degree centrality at equilibrium, and does so
+consistently regardless of the structural configuration.
+
+**The structural variables that govern the magnitude of that concentration
+diverge sharply from those that govern amplification.** In the baseline model,
+the parameter that most strongly determines the level of equilibrium Gini is
+status observability — the rate at which agents update their escalation tendency
+by observing others' escalatory outcomes (eta_obs). Its ARD sensitivity is
+approximately five to six times that of the next parameter, influence locality
+(alpha). Group size (lambda), which is the dominant variable for population-level
+amplification, has almost no influence on equilibrium Gini. The structural axis
+that determines whether escalation spreads as a population norm is largely
+orthogonal to the axis that determines how unequally it distributes network
+position.
+
+In the bivariate σ model the pattern is sharper still. Observational bandwidth
+(dw_obs) — the network-level parameter controlling how far the consequences of
+escalatory encounters propagate as visible status signals — accounts for more of
+the variance in equilibrium Gini than any other parameter, with an ARD sensitivity
+approximately nine times that of the next-ranked parameter. The σ-distribution
+parameters — mean status sensitivity (mu_sigma) and its dispersion (sigma_sigma)
+— rank last for Gini, with sensitivity below 1. This mirrors the Stage 007
+finding that sigma_sigma and mu_sigma govern psi_sigma but not Ψ; for Gini,
+the dissociation runs the other direction: dw_obs and alpha govern centrality
+inequality, while the σ-distribution parameters do not.
+
+**Dissipative inequality — what cooperative reconstruction undoes.** The gap
+between peak transient Gini and equilibrium Gini characterises how much of
+escalation's concentration effect the cooperative reconstruction mechanism
+subsequently reverses. The dissipation is modest on average — mean peak Gini was
+roughly 0.05–0.08 Gini units above equilibrium across conditions — but
+structurally patterned. In globally connected configurations (low influence
+locality), dissipative inequality is largest: escalatory wins produce a transient
+concentration that cooperative reconstruction disperses before equilibrium. In
+locally concentrated configurations (high influence locality), the cooperative
+rebuild is slower to reach distant network positions, and inequality persists.
+Observational bandwidth amplifies both peak and equilibrium inequality, but has
+the strongest effect on the dissipative component, suggesting that broadly visible
+escalatory outcomes create a larger initial concentration that cooperative
+interactions must work harder to undo.
+
+**What this adds to the architectural claim.** Equilibrium centrality inequality
+is structurally governed, but by a parameter axis distinct from those that govern
+amplification and power concentration. Group size determines whether escalation
+becomes a population-level norm. Influence locality determines whether the most
+escalatory individuals accumulate persistent positional advantages. Observational
+bandwidth — how broadly the consequences of escalatory encounters are visible
+across the network — determines how unequally degree centrality is distributed at
+equilibrium. These three structural mechanisms control different aspects of how
+escalation shapes a social network. Their governing parameters do not coincide,
+and they do not share a common structural fix.
+
+---
+
 ## Remaining questions
 
-Several questions are left open by this analysis.
+Two questions from the earlier analyses remain open.
 
 Whether the Ψ = 1 amplification threshold shifts in the presence of σ
 heterogeneity remains unverified. The bivariate analysis did not sample into
@@ -219,10 +291,3 @@ measured in the bivariate analysis. The structural argument predicts that the
 dissociation result from the baseline model should hold — σ does not alter the
 payoff mechanism that ties individual power accumulation to influence locality —
 but this has not been verified empirically.
-
-Finally, neither analysis characterised the inequality of network centrality at
-equilibrium — how concentrated the distribution of connections becomes, not
-just whether it correlates with escalatory disposition. A Gini-type measure of
-centrality inequality across the parameter space would complement the correlation
-measures reported here and might further differentiate the structural conditions
-under which escalation produces dispersed versus concentrated network outcomes.

@@ -8,7 +8,7 @@ git_hash: 90f723eeebf5e742b328077edb8093d7e78a362f
 
 ## T009-1: Baseline model Gini GP and sensitivity analysis
 
-- [ ] T009-1: Write `analysis/gp_gini_baseline.R`. Load
+- [x] T009-1: Write `analysis/gp_gini_baseline.R`. Load
   `results/003-centrality-correlation/gp_train_raw.csv`. Reconstruct `pair_idx`
   with `mutate(pair_idx = ceiling(row_number() / (2L * n_rep)))` (n_rep from
   `defaults.toml`) and `eta_obs = kappa * eta_fixed` (eta_fixed from
@@ -31,7 +31,7 @@ git_hash: 90f723eeebf5e742b328077edb8093d7e78a362f
 
 ## T009-2: Bivariate model Gini GP and sensitivity analysis
 
-- [ ] T009-2: Write `analysis/gp_gini_bivar.R`. Load `results/gp_bivar_train.csv`.
+- [x] T009-2: Write `analysis/gp_gini_bivar.R`. Load `results/gp_bivar_train.csv`.
   Reconstruct pair structure by joining to `results/design_gp_bivar.csv` on the
   six bivariate parameters (`mu_sigma`, `lambda`, `sigma_sigma`, `dw_obs`,
   `dw_bridge`, `alpha`) — each design row maps to a pair_idx. Aggregate mean
@@ -47,7 +47,7 @@ git_hash: 90f723eeebf5e742b328077edb8093d7e78a362f
 
 ## T009-3: Hypothesis test and cross-model comparison
 
-- [ ] T009-3: Write `analysis/gini_compare.R`. (a) **Hypothesis test**: for each
+- [x] T009-3: Write `analysis/gini_compare.R`. (a) **Hypothesis test**: for each
   model, load the aggregated GP data (from T009-1 and T009-2), compute
   `delta_gini = y_hi - y_lo` per design point, and report: fraction of points
   where delta > 0, mean and SD of delta, and the distribution (histogram or
@@ -66,7 +66,7 @@ git_hash: 90f723eeebf5e742b328077edb8093d7e78a362f
 
 ## T009-4: Extend docs/final-report.md with Gini findings
 
-- [ ] T009-4: Read `docs/final-report.md` in full. Add a new section "**Inequality
+- [x] T009-4: Read `docs/final-report.md` in full. Add a new section "**Inequality
   of network centrality**" that resolves the current "Remaining questions" item
   on Gini. The section must cover: (a) which structural parameters govern
   `gini_k_final` in each model and whether they match the Ψ / ε–degree rankings

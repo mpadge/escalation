@@ -10,7 +10,7 @@ git_hash: 00c5122fd6e483a2bc9b6ce28ac89ae394489dfb
 Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_explore.R), T010-6 (gp_train.R), T010-7 (gini.R), T010-9 (Makefile complete), T010-11 (report written).
 
 ## T010-1: Delete obsolete analysis/ files and create new file skeleton
-- [ ] T010-1: Delete the following files from `analysis/`: `gp_train2.R`, `gp_train3.R`,
+- [x] T010-1: Delete the following files from `analysis/`: `gp_train2.R`, `gp_train3.R`,
   `gp_phase2.R`, `gp_phase3.R`, `plot2.R`, `plot3.R`, `morris-bivar.R`, `sobol-bivar.R`,
   `gp_train_bivar.R`, `gp_phase_bivar.R`, `plot_bivar.R`, `gp_gini_baseline.R`,
   `gp_gini_bivar.R`, `gini_compare.R`, `recover-bivar.R`, `gp_phase_utils.R`,
@@ -20,7 +20,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   `gp_explore.R`, `gini.R`, `plot.R` — no others.
 
 ## T010-2: Consolidate shared utilities into utils.R
-- [ ] T010-2: Rewrite `analysis/utils.R` to consolidate all shared helpers needed by the
+- [x] T010-2: Rewrite `analysis/utils.R` to consolidate all shared helpers needed by the
   remaining scripts. Absorb the `delta_monotone()` function (previously in
   `delta_monotone.R`). Remove any helper functions that existed only to support deleted
   scripts (stage-numbered GP train/phase utilities). Ensure `utils.R` is source-able

@@ -48,47 +48,17 @@ if (( done_n == 0 )); then
 fi
 
 now=$(date +%s)
-
-# Sort all .done timestamps, compute consecutive deltas, remove IQR outliers,
-# use trimmed mean delta for rate and ETA.
-# Outputs two values: <mean_delta_float> <elapsed_int>
-# elapsed = mean_delta * done_n (pure computation estimate, no idle gap).
-# Pipeline: find(timestamps) | sort | awk(deltas) | sort | awk(IQR+mean)
-# Avoids O(n²) in-awk sort; sort -n uses the OS radix sort instead.
-stats=$(
-    find "$log_dir" -maxdepth 1 -name '*.done' -printf '%T@\n' 2>/dev/null \
-        | sort -n \
-        | awk 'NR > 1 { printf "%.6f\n", $1 - prev } { prev = $1 }' \
-        | sort -n \
-        | awk -v done="$done_n" '
-    { d[++n] = $1 }
-    END {
-        if (n == 0) { printf "1.000000 %d\n", done; exit }
-        q1  = d[int(n * 0.25) + 1]
-        q3  = d[int(n * 0.75) + 1]
-        iqr = q3 - q1
-        lo  = q1 - 1.5 * iqr
-        hi  = q3 + 1.5 * iqr
-        sum = 0; cnt = 0
-        for (i = 1; i <= n; i++)
-            if (d[i] >= lo && d[i] <= hi) { sum += d[i]; cnt++ }
-        if (cnt == 0) { sum = d[int(n / 2) + 1]; cnt = 1 }
-        md = sum / cnt
-        if (md < 1e-6) md = 1e-6
-        printf "%.6f %d\n", md, int(md * done + 0.5)
-    }
-    '
-)
-mean_delta=$(echo "$stats" | awk '{print $1}')
-elapsed=$(echo "$stats" | awk '{print $2}')
+first_ts=$(find "$log_dir" -maxdepth 1 -name '*.done' -printf '%T@\n' 2>/dev/null \
+           | sort -n | head -1 | awk '{printf "%d", int($1)}')
+elapsed=$(( now - first_ts ))
 
 echo "Elapsed    : $(fmt_duration $elapsed)"
 
 remaining_n=$(( expected - done_n ))
-if (( done_n >= 2 )); then
-    eta_secs=$(awk "BEGIN { printf \"%d\", int($remaining_n * $mean_delta + 0.5) }")
-    rate=$(awk "BEGIN { printf \"%.2f\", 1.0 / $mean_delta }")
-    echo "Rate       : $rate pairs/s  (IQR-trimmed mean Δt)"
+if (( done_n >= 2 && elapsed > 0 )); then
+    rate=$(awk "BEGIN { printf \"%.2f\", $done_n / $elapsed }")
+    eta_secs=$(awk "BEGIN { printf \"%d\", int($remaining_n * $elapsed / $done_n + 0.5) }")
+    echo "Rate       : $rate files/s"
     eta_clock=$(date -d "@$(( now + eta_secs ))" '+%H:%M:%S')
     echo "ETA        : $(fmt_duration $eta_secs)  (done at $eta_clock)"
 fi

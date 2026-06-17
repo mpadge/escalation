@@ -267,10 +267,15 @@ log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
 dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
 
 raw_combined    <- file.path (results_dir, "gp_train_raw.csv")
+init_design_file <- file.path (results_dir, "gp_init_design.csv")
 checkpoint_file <- file.path (results_dir, "gp_explore_checkpoint.rds")
 
 # ---------------------------------------------------------------------------
-# Check for existing checkpoint
+# Resume or initialise
+# Three states, in order of preference:
+#   1. Checkpoint exists  → resume adaptive loop from saved iteration
+#   2. Raw + design exist → simulations done; skip binary, re-fit GP only
+#   3. Nothing            → start from scratch
 # ---------------------------------------------------------------------------
 
 if (file.exists (checkpoint_file)) {
@@ -282,27 +287,46 @@ if (file.exists (checkpoint_file)) {
     peak_loc_prev     <- state$peak_loc
     start_iter        <- state$iter + 1L
     cli_alert_info (
-        "Resuming from iteration {.val {start_iter}} \\
-        ({.val {nrow(design_scaled_all)}} design points so far)"
+        "Resuming at iteration {.val {start_iter}} \\
+        ({.val {nrow(design_scaled_all)}} design points in checkpoint)"
     )
 } else {
-    cli_h2 (col_yellow ("Initial coarse LHS (N={N_INIT})"))
-    design_scaled_init <- make_lhs_scaled (N_INIT, param_names, binf, bsup)
-    design_full_init   <- make_design_full (design_scaled_init, fixed, param_names)
+    if (file.exists (raw_combined) && file.exists (init_design_file)) {
+        cli_alert_info (
+            "Found existing simulation output — skipping LHS run, re-fitting initial GP"
+        )
+        design_scaled_all <- read.csv (init_design_file)
+        # raw_combined may have rows appended by a partial later iteration; take
+        # only the initial N_INIT points' worth of rows.
+        n_init_rows <- N_INIT * 2L * n_rep
+        raw_init <- read.csv (raw_combined)
+        if (nrow (raw_init) > n_init_rows) {
+            cli_alert_info (
+                "Trimming raw to first {.val {n_init_rows}} rows (initial LHS batch)"
+            )
+            raw_init <- raw_init [seq_len (n_init_rows), ]
+        }
+        tmp_raw <- tempfile (fileext = ".csv")
+        write.csv (raw_init, tmp_raw, row.names = FALSE)
+        gp_data_all <- aggregate_psi (tmp_raw, design_scaled_all, param_names, n_rep)
+        unlink (tmp_raw)
+    } else {
+        cli_h2 (col_yellow ("Initial coarse LHS (N={N_INIT})"))
+        design_scaled_all <- make_lhs_scaled (N_INIT, param_names, binf, bsup)
+        write.csv (design_scaled_all, init_design_file, row.names = FALSE)
 
-    batch_raw <- tempfile (fileext = ".csv")
-    cli_alert_info (
-        "Running binary on {.val {N_INIT}} initial points \\
-        ({.val {n_rep}} replicates each)..."
-    )
-    run_binary_batch (binary, design_full_init, batch_raw, log_dir, n_rep)
+        design_full_init <- make_design_full (design_scaled_all, fixed, param_names)
+        batch_raw <- tempfile (fileext = ".csv")
+        cli_alert_info (
+            "Running binary on {.val {N_INIT}} initial points \\
+            ({.val {n_rep}} replicates each)..."
+        )
+        run_binary_batch (binary, design_full_init, batch_raw, log_dir, n_rep)
 
-    gp_data_init <- aggregate_psi (batch_raw, design_scaled_init, param_names, n_rep)
-    file.copy (batch_raw, raw_combined, overwrite = TRUE)
-    unlink (batch_raw)
-
-    design_scaled_all <- design_scaled_init
-    gp_data_all       <- gp_data_init
+        gp_data_all <- aggregate_psi (batch_raw, design_scaled_all, param_names, n_rep)
+        file.copy (batch_raw, raw_combined, overwrite = TRUE)
+        unlink (batch_raw)
+    }
 
     cli_h2 (col_yellow ("Fit initial GP on Psi"))
     splits  <- split_train_test (gp_data_all, param_names)
@@ -311,6 +335,18 @@ if (file.exists (checkpoint_file)) {
 
     peak_loc_prev <- NULL
     start_iter    <- 1L
+
+    saveRDS (
+        list (
+            iter              = 0L,
+            design_scaled_all = design_scaled_all,
+            gp_data_all       = gp_data_all,
+            fit_psi           = fit_psi,
+            peak_loc          = NULL
+        ),
+        checkpoint_file
+    )
+    cli_alert_info ("Checkpoint saved after initial GP fit (iter=0)")
 }
 
 # ---------------------------------------------------------------------------

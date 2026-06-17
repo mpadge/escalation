@@ -36,7 +36,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   the Morris output, not by re-running.
 
 ## T010-4: Write sobol.R — unified bivariate Sobol analysis
-- [ ] T010-4: Rewrite `analysis/sobol.R` as a single bivariate script computing first-order
+- [x] T010-4: Rewrite `analysis/sobol.R` as a single bivariate script computing first-order
   and total-order Sobol indices for Ψ (and psi_sigma where applicable) across the full
   bivariate parameter set. Write results to `results/sobol_results.csv`. Remove all
   stage-numbered references and the separate `sobol-bivar.R` logic (already deleted in

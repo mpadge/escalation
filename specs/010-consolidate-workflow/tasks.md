@@ -59,7 +59,7 @@ Commit after: T010-2 (utils), T010-3 (screen.R), T010-4 (sobol.R), T010-5 (gp_ex
   upper-range boundary) to `results/gp_phase/`.
 
 ## T010-6: Write gp_train.R — GP training on all estimands
-- [ ] T010-6: Rewrite `analysis/gp_train.R` to load the adaptive design from
+- [x] T010-6: Rewrite `analysis/gp_train.R` to load the adaptive design from
   `results/adaptive_design.csv`, simulate the remaining estimands (ε–degree correlation,
   psi_sigma), and fit DiceKriging GPs for each. Save GP objects to `results/gp_edeg.rds`
   and `results/gp_psi_sigma.rds`. Include a σ-degenerate slice block: predict Ψ from

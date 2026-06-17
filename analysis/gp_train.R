@@ -1,278 +1,105 @@
 #!/usr/bin/env Rscript
-# GP emulator training for the escalation model.
-# Generates an LHS design, runs the Rust gp-train subcommand for R replicates,
-# aggregates replicates, fits Matern-5/2 ARD GPs on Psi and tau_psi via
-# DiceKriging, validates on hold-out, and saves model objects + diagnostics.
+# GP training on all estimands using the adaptive design from gp_explore.R.
+# Loads results/gp_train_raw.csv and fits Matern-5/2 ARD GPs for:
+#   - epsilon_k_corr_final (epsilon-degree correlation)
+#   - psi_sigma (sigma-perturbation sensitivity)
 #
-# Prerequisites: install.packages(c("lhs", "DiceKriging", "dplyr", "cli"))
+# Also generates a sigma-degenerate slice: predicts Psi at (mu_sigma=1,
+# sigma_sigma=0) across the lambda x alpha grid using the existing gp_psi.rds.
+# This is a new result on the adaptive design — not a reproduction of Stage 2.
+#
+# Outputs:
+#   results/gp_edeg.rds                         — epsilon-degree GP
+#   results/gp_psi_sigma.rds                    — psi_sigma GP
+#   results/gp_phase/phase_edeg_lambda_alpha.csv
+#   results/gp_phase/phase_psi_sigma_lambda_alpha.csv
+#   results/gp_phase/psi_degenerate.csv         — sigma-degenerate Psi slice
+#
+# Prerequisites: install.packages(c("DiceKriging", "dplyr", "cli", "RcppTOML"))
 # Run from project root: Rscript analysis/gp_train.R
+# Requires: make explore completed
 
-library (lhs)
 library (DiceKriging)
 library (dplyr, warn.conflicts = FALSE)
 library (RcppTOML)
 library (cli)
-library (processx)
 
 source ("analysis/utils.R")
 
 # ---------------------------------------------------------------------------
-# Functions
+# Helpers
 # ---------------------------------------------------------------------------
 
-select_active_params <- function (results_dir, all_param_names, fixed_exclude,
-                                  top_n) {
-    if (file.exists (file.path (results_dir, "sobol_results.csv"))) {
-        df <- read.csv (file.path (results_dir, "sobol_results.csv"))
-        df <- df [!(df$param %in% fixed_exclude), ]
-        param_names <- df$param [seq_len (min (top_n, nrow (df)))]
-        cli_alert_info (col_yellow (
-            "Using top {length(param_names)} parameters from Sobol \\
-            (delta excluded): {.field {param_names}}"
-        ))
-    } else if (file.exists (file.path (results_dir, "morris_results.csv"))) {
-        df <- read.csv (file.path (results_dir, "morris_results.csv"))
-        df <- df [!(df$param %in% fixed_exclude), ]
-        param_names <- df$param [seq_len (min (top_n, nrow (df)))]
-        cli_alert_warning (col_yellow (
-            "{.file sobol_results.csv} not found; using top \\
-            {length(param_names)} parameters from Morris (delta excluded)"
-        ))
-    } else {
-        param_names <- all_param_names
-        cli_alert_warning (
-            "No prior results; using all {length(param_names)} parameters"
+load_design_and_raw <- function (results_dir) {
+    design_file <- file.path (results_dir, "adaptive_design.csv")
+    raw_file    <- file.path (results_dir, "gp_train_raw.csv")
+    for (f in c (design_file, raw_file)) {
+        if (!file.exists (f))
+            cli_abort ("{.file {f}} not found — run {.code make explore} first")
+    }
+    list (
+        design = read.csv (design_file),
+        raw    = read.csv (raw_file)
+    )
+}
+
+aggregate_estimand <- function (raw, design, param_names, metric_col, n_rep) {
+    if (!metric_col %in% colnames (raw)) {
+        cli_abort (
+            "Column {.field {metric_col}} not found in gp_train_raw.csv. \\
+            Ensure the Rust binary outputs this metric."
         )
     }
-    param_names
-}
-
-make_lhs_design <- function (param_names, binf, bsup, fixed, n_lhs,
-                              results_dir) {
-    p <- length (param_names)
-    cli_alert_info (
-        "Generating LHS design (N={.val {n_lhs}}, p={.val {p}})..."
-    )
-    lhs_unit <- maximinLHS (n_lhs, p)
-    design_scaled <- as.data.frame (lhs_unit)
-    colnames (design_scaled) <- param_names
-    for (nm in param_names) {
-        design_scaled [[nm]] <-
-            binf [nm] + (bsup [nm] - binf [nm]) * design_scaled [[nm]]
-    }
-    design_full <- design_scaled
-    for (nm in names (fixed)) design_full [[nm]] <- fixed [[nm]]
-    for (nm in param_names)   design_full [[nm]] <- design_scaled [[nm]]
-    design_full$theta <-
-        pmax (1L, pmin (4L, as.integer (round (design_full$theta))))
-    design_full$n     <- as.integer (design_full$n)
-    design_full$t_max <- as.integer (design_full$t_max)
-    write.csv (design_full, file.path (results_dir, "design_lhs.csv"),
-               row.names = FALSE)
-    cli_alert_info ("Wrote {.file design_lhs.csv}")
-    list (design_scaled = design_scaled, design_full = design_full)
-}
-
-run_gp_binary <- function (binary, results_dir, log_dir, n_lhs, n_rep) {
-    out_file      <- file.path (results_dir, "gp_train_raw.csv")
-    expected_rows <- n_lhs * n_rep * 2L  # lo + hi per (design point, seed)
-    n_expected    <- n_lhs * n_rep
-
-    # Detect existing state
-    n_existing  <- if (file.exists (out_file))
-        length (readLines (out_file, warn = FALSE)) - 1L
-    else 0L
-    n_done      <- length (list.files (log_dir, pattern = "\\.done$"))
-    has_partial <- n_existing > 0L || n_done > 0L
-
-    if (n_existing >= expected_rows) {
-        cli_alert_info (
-            "{.file {out_file}} already complete; skipping binary run."
-        )
-        return (invisible (NULL))
-    }
-
-    resume <- FALSE
-    if (has_partial) {
-        cli_alert_warning (col_yellow (
-            "Existing state: {.val {n_existing}}/{.val {expected_rows}} \\
-            CSV rows, {.val {n_done}} .done files."
-        ))
-        response <- tolower (trimws (readline (
-            "Resume from checkpoint? [Y/n/restart] "
-        )))
-        if (response %in% c ("restart", "r")) {
-            cli_alert_info ("Restarting from scratch...")
-            if (file.exists (out_file)) chk <- file.remove (out_file)
-            old_done <- list.files (
-                log_dir,
-                pattern = "\\.done$",
-                full.names = TRUE
-            )
-            if (length (old_done) > 0L) chk <- file.remove (old_done)
-        } else if (response %in% c ("", "y", "yes")) {
-            resume <- TRUE
-            cli_alert_info (
-                "Resuming from row {.val {n_existing / (n_rep * 2L) + 1L}}..."
-            )
-        } else {
-            cli_abort ("Aborted.")
-        }
-    }
-
-    n_expected <- n_lhs * n_rep
-    cli_alert_info (
-        "Running binary ({.val {n_lhs}} design points x \\
-        {.val {n_rep}} replicates = {.val {n_expected}} pairs)..."
-    )
-    cli_alert_info (
-        "Expected {.val {n_expected}} progress files \\
-        — use {.code make progress} to see."
-    )
-    result <- processx::run (
-        binary,
-        c (
-            "gp-train",
-            "--design",     file.path (results_dir, "design_lhs.csv"),
-            "--replicates", as.character (n_rep),
-            "--output",     out_file,
-            "--log-dir",    log_dir,
-            if (resume) "--resume" else character (0)
-        ),
-        echo = TRUE, error_on_status = FALSE
-    )
-    if (result$status != 0) stop ("Binary failed: ", result$stderr)
-}
-
-aggregate_replicates <- function (results_dir, design_scaled, param_names,
-                                  n_lhs, n_rep) {
-    out_file <- file.path (results_dir, "gp_data.csv")
-    if (file.exists (out_file)) {
-        cli_alert_warning (col_red (
-            "{.file {out_file}} already exists; loading from disk."
-        ))
-        return (read.csv (out_file))
-    }
-    raw <- read.csv (file.path (results_dir, "gp_train_raw.csv"))
-    # Layout per design point: [pair_seed0_lo, pair_seed0_hi, pair_seed1_lo,
-    #   ...] for n_rep seeds, repeating for each design point.
     raw <- raw |>
         mutate (
-            pair_idx = ceiling (row_number () / (2 * n_rep)),
-            is_lo    = (row_number () %% 2 == 1)
+            pair_idx = ceiling (row_number () / (2L * n_rep)),
+            is_lo    = (row_number () %% 2L == 1L)
         )
     gp_data <- raw |>
         filter (is_lo) |>
         group_by (pair_idx) |>
         summarise (
-            psi_mean     = mean (psi,     na.rm = TRUE),
-            psi_sd       = sd   (psi,     na.rm = TRUE),
-            tau_psi_mean = mean (tau_psi, na.rm = TRUE),
+            y_mean = mean (.data [[metric_col]], na.rm = TRUE),
             .groups = "drop"
         )
-    gp_data$psi_sd [is.na (gp_data$psi_sd)] <- 0
-    stopifnot (nrow (gp_data) == n_lhs)
-    gp_data <- bind_cols (design_scaled [seq_len (n_lhs), ], gp_data)
-    write.csv (gp_data, out_file, row.names = FALSE)
-    cli_alert_info ("Wrote {.file {out_file}}")
-    gp_data
+    n_pts <- nrow (gp_data)
+    if (n_pts != nrow (design)) {
+        cli_alert_warning (
+            "Design has {.val {nrow(design)}} rows but got \\
+            {.val {n_pts}} aggregated points — check n_rep"
+        )
+    }
+    bind_cols (design [seq_len (n_pts), param_names, drop = FALSE], gp_data)
 }
 
-split_train_test <- function (gp_data, n_lhs, param_names) {
-    gp_data$quintile <- cut (
-        gp_data$psi_mean,
-        breaks = quantile (gp_data$psi_mean, probs = seq (0, 1, 0.2),
-                           na.rm = TRUE),
-        include.lowest = TRUE, labels = FALSE
-    )
-    set.seed (123)
+split_train_test <- function (gp_data, param_names) {
+    n        <- nrow (gp_data)
+    quintile <- dplyr::ntile (gp_data$y_mean, 5L)
+    set.seed (123L)
     train_idx <- unlist (lapply (
-        split (seq_len (n_lhs), gp_data$quintile),
+        split (seq_len (n), quintile),
         function (idx) sample (idx, size = floor (0.8 * length (idx)))
     ))
-    test_idx <- setdiff (seq_len (n_lhs), train_idx)
+    test_idx <- setdiff (seq_len (n), train_idx)
     cli_alert_info (
         "Train: {.val {length(train_idx)}}  Test: {.val {length(test_idx)}}"
     )
     list (
-        X_train   = gp_data [train_idx, param_names, drop = FALSE],
-        X_test    = gp_data [test_idx,  param_names, drop = FALSE],
-        y_train   = gp_data$psi_mean     [train_idx],
-        y_test    = gp_data$psi_mean     [test_idx],
-        tau_train = gp_data$tau_psi_mean [train_idx],
-        tau_test  = gp_data$tau_psi_mean [test_idx]
+        X_train = gp_data [train_idx, param_names, drop = FALSE],
+        X_test  = gp_data [test_idx,  param_names, drop = FALSE],
+        y_train = gp_data$y_mean [train_idx],
+        y_test  = gp_data$y_mean [test_idx]
     )
 }
 
-fit_gps <- function (x_train, y_train, tau_train, results_dir) {
-    p <- ncol (x_train)
-    cli_alert_info (
-        "Fitting GP on Psi (n_train={.val {nrow(x_train)}}, p={.val {p}})..."
-    )
-    cli_alert_info ("DiceKriging Cholesky is O(n^3) — may take several minutes")
-    fit_psi <- km (
-        formula = ~1, design = x_train, response = y_train,
-        covtype = "matern5_2", nugget.estim = TRUE,
-        control = list (trace = FALSE)
-    )
-    cli_alert_info ("Fitting GP on tau_psi...")
-    fit_tau <- km (
-        formula = ~1, design = x_train, response = tau_train,
-        covtype = "matern5_2", nugget.estim = TRUE,
-        control = list (trace = FALSE)
-    )
-    saveRDS (fit_psi, file.path (results_dir, "gp_psi.rds"))
-    saveRDS (fit_tau, file.path (results_dir, "gp_tau.rds"))
-    cli_alert_info ("Saved gp_psi.rds and gp_tau.rds")
-    list (fit_psi = fit_psi, fit_tau = fit_tau)
-}
-
-validate_gps <- function (fit_psi, fit_tau, splits, results_dir) {
-    pred_psi <- predict (fit_psi, newdata = splits$X_test, type = "UK",
-                         checkNames = FALSE)
-    pred_tau <- predict (fit_tau, newdata = splits$X_test, type = "UK",
-                         checkNames = FALSE)
-    rmse_psi     <- sqrt (mean ((pred_psi$mean - splits$y_test)^2))
-    rmse_tau     <- sqrt (mean ((pred_tau$mean - splits$tau_test)^2,
-                                na.rm = TRUE))
-    coverage_psi <- mean (
-        abs (pred_psi$mean - splits$y_test) <= 1.96 * pred_psi$sd,
-        na.rm = TRUE
-    )
-    validation <- data.frame (
-        metric = c ("rmse_psi", "rmse_tau", "coverage_95_psi"),
-        value  = c (rmse_psi, rmse_tau, coverage_psi)
-    )
-    write.csv (validation, file.path (results_dir, "gp_validation.csv"),
-               row.names = FALSE)
-    cli_alert_info (
-        "Validation: RMSE(Psi)={.val {round(rmse_psi, 4)}}  \\
-        Coverage(Psi)={.val {round(coverage_psi, 3)}}"
-    )
-}
-
-extract_hyperparams <- function (fit_psi, param_names, results_dir) {
-    ell    <- fit_psi@covariance@range.val
-    sigma2 <- fit_psi@covariance@sd2
-    nugget <- fit_psi@covariance@nugget
-    hyperparams <- data.frame (
-        param       = param_names,
-        ell         = ell,
-        sensitivity = 1 / ell
-    )
-    hyperparams <- hyperparams [order (hyperparams$ell), ]
-    meta <- data.frame (
-        param = c ("sigma2", "nugget"), ell = c (sigma2, nugget),
-        sensitivity = NA
-    )
-    hyperparams <- rbind (hyperparams, meta)
-    write.csv (hyperparams, file.path (results_dir, "gp_hyperparams.csv"),
-               row.names = FALSE)
-    cli_alert_info ("ARD length scales (short = sensitive):")
-    print (hyperparams [hyperparams$param %in% param_names,
-                        c ("param", "ell")], digits = 3)
-    cli_alert_info ("Wrote gp_hyperparams.csv")
-    invisible (hyperparams)
+fit_and_save <- function (gp_data, param_names, label, out_rds) {
+    splits <- split_train_test (gp_data, param_names)
+    fit    <- fit_gp_surface (splits$X_train, splits$y_train, label)
+    validate_gp_surface (fit, splits$X_test, splits$y_test, label)
+    print_hyperparams (fit, label)
+    saveRDS (fit, out_rds)
+    cli_alert_info ("Saved {.file {out_rds}}")
+    fit
 }
 
 # ---------------------------------------------------------------------------
@@ -280,113 +107,144 @@ extract_hyperparams <- function (fit_psi, param_names, results_dir) {
 # ---------------------------------------------------------------------------
 
 set.seed (42)
-cli_h1 (col_yellow ("GP training"))
+cli_h1 (col_yellow ("GP training on all estimands"))
 
 results_dir <- "results"
-if (!dir.exists (results_dir)) {
-    cli_abort (
-        "Output directory {.file {results_dir}} not found — \\
-        run {.file analysis/morris.R} first"
-    )
-}
-
-# delta fixed at pars_s$delta — suppresses Psi monotonically; held out of
-# analyses
-all_param_names <- c (
-    "gamma", "lambda", "alpha", "theta", "beta",
-    "w_win", "b", "w_loss", "dw_obs", "dw_bridge", "eta_obs"
-)
-FIXED_EXCLUDE <- c ("delta") # nolint
+phase_dir   <- file.path (results_dir, "gp_phase")
+dir.create (phase_dir, recursive = TRUE, showWarnings = FALSE)
 
 pars   <- RcppTOML::parseTOML ("defaults.toml")
-pars_s <- pars$structural
 pars_a <- pars$analysis
 
-all_binf <- setNames (
-    vapply (
-        all_param_names,
-        function (nm) pars$ranges [[nm]] [1L],
-        numeric (1)
-    ),
-    all_param_names
-)
-all_bsup <- setNames (
-    vapply (
-        all_param_names,
-        function (nm) pars$ranges [[nm]] [2L],
-        numeric (1)
-    ),
-    all_param_names
+n_rep <- as.integer (
+    if (!is.null (pars$gp$n_rep_gp)) pars$gp$n_rep_gp else 20L
 )
 
-param_names <- select_active_params (
-    results_dir, all_param_names, FIXED_EXCLUDE, pars$gp$top_n_gp
-)
-cli_inform ("")
-p    <- length (param_names)
-binf <- all_binf [param_names]
-bsup <- all_bsup [param_names]
+# Param names derived from adaptive_design.csv columns (exclude pair_idx if present)
+dat <- load_design_and_raw (results_dir)
+# param_names = columns of adaptive_design.csv (all are free params)
+param_names <- setdiff (colnames (dat$design), c ("pair_idx", "psi_mean"))
+cli_alert_info ("Parameters in adaptive design: {.field {param_names}}")
 
-log_dir <- if (!is.null (pars_s$log_dir)) pars_s$log_dir else "/tmp/escalation"
-dir.create (log_dir, recursive = TRUE, showWarnings = FALSE)
-
-fixed <- list (
-    n             = as.integer (pars_a$n),
-    mu0           = pars_a$mu0,
-    sigma0        = pars_a$sigma0,
-    c             = pars_a$c,
-    e             = pars_a$e,
-    dw_coop       = pars_a$dw_coop,
-    dw_sub        = pars_a$dw_sub,
-    dw_excl       = pars_a$dw_excl,
-    eta           = pars_a$eta,
-    delta_direct  = pars_a$delta_direct,
-    delta_exploit = pars_a$delta_exploit,
-    w_min         = pars_s$w_min,
-    w_max         = pars_s$w_max,
-    sigma_drift   = pars_s$sigma_drift,
-    rho_contested = pars_s$rho_contested,
-    eta_trauma    = pars_s$eta_trauma,
-    delta         = pars_s$delta,
-    t_max         = as.integer (pars_a$t_max_gp),
-    gamma         = pars_a$mid_gamma,
-    lambda        = pars_a$mid_lambda,
-    alpha         = pars_a$mid_alpha,
-    theta         = as.integer (pars_a$mid_theta),
-    beta          = pars_a$mid_beta,
-    w_win         = pars_a$mid_w_win,
-    b             = pars_a$mid_b,
-    w_loss        = pars_a$mid_w_loss,
-    dw_obs        = pars_a$mid_dw_obs,
-    dw_bridge     = pars_a$mid_dw_bridge,
-    eta_obs       = pars_a$mid_eta_obs
-)
-
-binary <- "./target/release/escalation"
-if (!file.exists (binary)) {
-    cli_abort ("Binary not found — run 'cargo build --release'")
+get_range <- function (nm) {
+    r <- pars$ranges [[nm]]
+    if (!is.null (r)) return (r)
+    stop ("No range found in defaults.toml for: ", nm)
 }
-
-N_LHS <- as.integer (if (!is.null (pars$gp$n_lhs))    pars$gp$n_lhs    else 1000L) # nolint
-n_rep <- as.integer (if (!is.null (pars$gp$n_rep_gp)) pars$gp$n_rep_gp else 5L)
-
-cli_h2 (col_yellow ("Design and progress data"))
-cli_alert_info ("Progress files will be written to {.file {log_dir}}")
-design <- make_lhs_design (param_names, binf, bsup, fixed, N_LHS, results_dir)
-cli_inform ("")
-
-cli_h2 (col_yellow ("Run 'gp-train' Rust binary"))
-run_gp_binary (binary, results_dir, log_dir, N_LHS, n_rep)
-cli_inform ("")
-
-cli_h2 (col_yellow ("Post-processing"))
-gp_data <- aggregate_replicates (
-    results_dir, design$design_scaled, param_names, N_LHS, n_rep
+binf <- setNames (
+    vapply (param_names, function (nm) get_range (nm) [1L], numeric (1)),
+    param_names
 )
-cli_inform ("")
-splits <- split_train_test (gp_data, N_LHS, param_names)
-fits   <- fit_gps (
-    splits$X_train, splits$y_train, splits$tau_train, results_dir
+bsup <- setNames (
+    vapply (param_names, function (nm) get_range (nm) [2L], numeric (1)),
+    param_names
 )
-validate_gps (fits$fit_psi, fits$fit_tau, splits, results_dir)
-extract_hyperparams (fits$fit_psi, param_names, results_dir)
+
+all_mid <- list (
+    gamma       = pars_a$mid_gamma,
+    lambda      = pars_a$mid_lambda,
+    alpha       = pars_a$mid_alpha,
+    theta       = as.integer (pars_a$mid_theta),
+    beta        = pars_a$mid_beta,
+    w_win       = pars_a$mid_w_win,
+    b           = pars_a$mid_b,
+    w_loss      = pars_a$mid_w_loss,
+    dw_obs      = pars_a$mid_dw_obs,
+    dw_bridge   = pars_a$mid_dw_bridge,
+    mu_sigma    = pars_a$mid_mu_sigma,
+    sigma_sigma = pars_a$mid_sigma_sigma,
+    eta_sigma   = pars_a$mid_eta_sigma,
+    sigma_decay = pars_a$mid_sigma_decay
+)
+mid_vals <- all_mid [param_names]
+
+# ---------------------------------------------------------------------------
+# Epsilon-degree correlation GP
+# ---------------------------------------------------------------------------
+
+cli_h2 (col_yellow ("epsilon_k_corr_final"))
+gp_edeg_data <- aggregate_estimand (
+    dat$raw, dat$design, param_names, "epsilon_k_corr_final", n_rep
+)
+fit_edeg <- fit_and_save (
+    gp_edeg_data, param_names,
+    "edeg", file.path (results_dir, "gp_edeg.rds")
+)
+
+# ---------------------------------------------------------------------------
+# psi_sigma GP
+# ---------------------------------------------------------------------------
+
+cli_h2 (col_yellow ("psi_sigma"))
+gp_psi_sigma_data <- aggregate_estimand (
+    dat$raw, dat$design, param_names, "psi_sigma", n_rep
+)
+fit_psi_sigma <- fit_and_save (
+    gp_psi_sigma_data, param_names,
+    "psi_sigma", file.path (results_dir, "gp_psi_sigma.rds")
+)
+
+# ---------------------------------------------------------------------------
+# Phase CSVs for edeg and psi_sigma over lambda x alpha
+# ---------------------------------------------------------------------------
+
+cli_h2 (col_yellow ("Phase diagrams: edeg and psi_sigma"))
+
+phase_grid <- build_phase_grid (
+    "lambda", "alpha", binf, bsup, mid_vals, param_names, n_grid = 50L
+)
+
+pred_edeg <- predict (
+    fit_edeg,
+    newdata    = phase_grid [, param_names, drop = FALSE],
+    type       = "UK",
+    checkNames = FALSE
+)
+write_phase_csv (
+    phase_grid, "lambda", "alpha",
+    pred_edeg$mean, phase_dir, "phase_edeg_lambda_alpha"
+)
+
+pred_psi_sigma <- predict (
+    fit_psi_sigma,
+    newdata    = phase_grid [, param_names, drop = FALSE],
+    type       = "UK",
+    checkNames = FALSE
+)
+write_phase_csv (
+    phase_grid, "lambda", "alpha",
+    pred_psi_sigma$mean, phase_dir, "phase_psi_sigma_lambda_alpha"
+)
+
+# ---------------------------------------------------------------------------
+# Sigma-degenerate Psi slice
+# ---------------------------------------------------------------------------
+
+cli_h2 (col_yellow ("Sigma-degenerate Psi slice (mu_sigma=1, sigma_sigma=0)"))
+
+fit_psi_path <- file.path (results_dir, "gp_psi.rds")
+if (!file.exists (fit_psi_path)) {
+    cli_abort ("{.file {fit_psi_path}} not found — run {.code make explore} first")
+}
+fit_psi <- readRDS (fit_psi_path)
+
+# Build lambda x alpha grid with sigma params fixed at degenerate values
+degen_vals <- mid_vals
+degen_vals [["mu_sigma"]]    <- 1.0  # sigma present but uniform
+degen_vals [["sigma_sigma"]] <- 0.0  # no inter-individual variation
+
+degen_grid <- build_phase_grid (
+    "lambda", "alpha", binf, bsup, degen_vals, param_names, n_grid = 50L
+)
+pred_degen <- predict (
+    fit_psi,
+    newdata    = degen_grid [, param_names, drop = FALSE],
+    type       = "UK",
+    checkNames = FALSE
+)
+write_phase_csv (
+    degen_grid, "lambda", "alpha",
+    pred_degen$mean, phase_dir, "psi_degenerate"
+)
+
+cli_alert_success (col_green ("GP training complete."))
